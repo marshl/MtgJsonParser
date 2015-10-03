@@ -1,0 +1,18 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="MtgJsonParser.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="JsonUrl" Type="(Web Service URL)" Scope="User">
+      <Value Profile="(Default)">http://mtgjson.com/json/AllSets-x.json.zip</Value>
+    </Setting>
+    <Setting Name="JsonZipFilename" Type="System.String" Scope="User">
+      <Value Profile="(Default)">AllSets-x.json.zip</Value>
+    </Setting>
+    <Setting Name="JsonFilename" Type="System.String" Scope="User">
+      <Value Profile="(Default)">AllSets-x.json</Value>
+    </Setting>
+    <Setting Name="JsonDirectory" Type="System.String" Scope="User">
+      <Value Profile="(Default)">AllSets-x.json</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
