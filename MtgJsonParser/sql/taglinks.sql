@@ -1,0 +1,6 @@
+CREATE TABLE taglinks (
+  id INT(11) NOT NULL AUTO_INCREMENT,
+  tagid INT(11) DEFAULT NULL,
+  cardid INT(11) DEFAULT NULL,
+  PRIMARY KEY (id)
+) 

@@ -1,0 +1,20 @@
+CREATE TABLE cards (
+  id INT(11) NOT NULL,
+  name VARCHAR(150) NOT NULL,
+  cost VARCHAR(50) DEFAULT NULL,
+  cmc INT(11) NOT NULL,
+  colour INT(11) NOT NULL,
+  colouridentity INT(11) NOT NULL,
+  numcolours INT(11) NOT NULL,
+  type VARCHAR(50) DEFAULT NULL,
+  subtype VARCHAR(75) DEFAULT NULL,
+  power VARCHAR(10) DEFAULT NULL,
+  numpower INT(11) DEFAULT NULL,
+  toughness VARCHAR(10) DEFAULT NULL,
+  numtoughness INT(11) DEFAULT NULL,
+  loyalty VARCHAR(10) DEFAULT NULL,
+  rules TEXT,
+  linktype VARCHAR(1) DEFAULT NULL,
+  linkid INT(11) DEFAULT NULL,
+  PRIMARY KEY (id)
+)
