@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace MtgJsonParser
@@ -70,7 +73,7 @@ namespace MtgJsonParser
         /// The subtypes of the card. These appear to the right of the dash in a card type. Usually each word is its own subtype. Example values: Trap, Arcane, Equipment, Aura, Human, Rat, Squirrel, etc.
         /// </summary>
         [JsonProperty("subtypes")]
-        public List<string> Subypes { get; set; }
+        public List<string> SubTypes { get; set; }
 
 
         /// <summary>
@@ -88,8 +91,8 @@ namespace MtgJsonParser
         /// <summary>
         /// The flavor text of the card.
         /// </summary>
-        [JsonProperty("flavour")]
-        public string Flavour { get; set; }
+        [JsonProperty("flavor")]
+        public string Flavortext { get; set; }
 
         /// <summary>
         /// The artist of the card. This may not match what is on the card as MTGJSON corrects many card misprints.
@@ -227,5 +230,159 @@ namespace MtgJsonParser
         /// </summary>
         [JsonProperty("source")]
         public string Source { get; set; }
+
+        public int OracleID { get; set; }
+
+        public Set ParentSet { get; set; }
+
+        public int? LinkID { get; set; }
+
+        public int ColorFlags
+        {
+            get
+            {
+                int flags = 0;
+                if (this.Colors != null)
+                {
+                    foreach (string str in this.Colors)
+                    {
+                        flags |= MtgConstants.ColourCodeToFlag(MtgConstants.ColourNameToCode(str));
+                    }
+                }
+                return flags;
+            }
+        }
+
+        public int ColorIdentityFlags
+        {
+            get
+            {
+                int colorIdentity = this.ColorFlags;
+                if (this.Text != null)
+                {
+                    foreach (char c in MtgConstants.COLOUR_CODES)
+                    {
+                        Regex regex = new Regex("\\{.*?" + c + ".*?\\}");
+                        Match match = regex.Match(this.Text);
+                        if (match.Success)
+                        {
+                            colorIdentity |= MtgConstants.ColourCodeToFlag(c);
+                        }
+                    }
+                }
+                return colorIdentity;
+            }
+        }
+
+        public int NumPower
+        {
+            get
+            {
+                if (this.Power == null)
+                {
+                    return 0;
+                }
+
+                Regex numRegex = new Regex("(-?\\d+)");
+                Match match = numRegex.Match(this.Power);
+                if (match.Success)
+                {
+                    return int.Parse(match.Groups[1].Value);
+                }
+                return 0;
+            }
+        }
+
+        public int NumToughness
+        {
+            get
+            {
+                if (this.Toughness == null)
+                {
+                    return 0;
+                }
+
+                Regex numRegex = new Regex("(-?\\d+)");
+                Match match = numRegex.Match(this.Toughness);
+                if (match.Success)
+                {
+                    return int.Parse(match.Groups[1].Value);
+                }
+                return 0;
+            }
+        }
+
+        public string LinkType
+        {
+            get
+            {
+                if (this.Names == null)
+                {
+                    return null;
+                }
+
+                switch (this.Layout)
+                {
+                    case "split":
+                        return "s";
+                    case "flip":
+                        return "f";
+                    case "double-faced":
+                        return "t";
+                    default:
+                        return null;
+                }
+            }
+        }
+
+        public List<string> GetOracleChunks()
+        {
+            List<string> output = new List<string>();
+            output.Add(this.OracleID.ToString());
+            output.Add(this.Name);
+            output.Add(this.ManaCost);
+            output.Add(this.CMC.ToString());
+            output.Add(this.ColorFlags.ToString());
+            output.Add(this.ColorIdentityFlags.ToString());
+            output.Add(this.Colors != null ? this.Colors.Count.ToString() : "0");
+            output.Add(this.Types != null ? string.Join(" ", this.Types) : null);
+            output.Add(this.SubTypes != null ? string.Join(" ", this.SubTypes) : null);
+            output.Add(this.Power);
+            output.Add(this.NumPower.ToString());
+            output.Add(this.Toughness);
+            output.Add(this.NumToughness.ToString());
+            output.Add(this.Loyalty);
+            output.Add(this.Text != null ? this.Text.Replace('\n', '~') : null);
+            //output.Add(this.LinkType);
+            //output.Add(this.LinkID != null ? this.LinkID.Value.ToString() : null);
+
+            return output;
+        }
+
+        public string GetOracleLine()
+        {
+            StringBuilder strBldr = new StringBuilder();
+
+            List<string> oracleChunks = this.GetOracleChunks();
+            for (int i = 0; i < oracleChunks.Count; ++i)
+            {
+                string chunk = oracleChunks[i];
+                if (chunk == null)
+                {
+                    strBldr.Append("\\N");
+                }
+                else
+                {
+                    strBldr.Append(chunk);
+                }
+
+                if (i != oracleChunks.Count - 1)
+                {
+                    strBldr.Append('\t');
+                }
+            }
+
+            return strBldr.ToString();
+        }
     }
 }
