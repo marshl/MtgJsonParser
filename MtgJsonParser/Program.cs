@@ -12,7 +12,7 @@ namespace MtgJsonParser
         {
             bool downloadFile = args.Contains("--download") || args.Contains("-d");
 
-            Parser p = new Parser(downloadFile, true);
+            Parser p = new Parser(downloadFile, false);
         }
     }
 }

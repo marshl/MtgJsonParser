@@ -20,6 +20,9 @@ namespace MtgJsonParser
         Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
         Dictionary<string, int> blockMap;
 
+        List<string> typeList;
+        List<string> subtypeList;
+
         public string[] setsToSkip = {
             "CEI",      // International Collector"s Edition (1993-12-01)
             "CED",      // Collector"s Edition (1993-12-01)
@@ -95,6 +98,10 @@ namespace MtgJsonParser
             this.WriteCardSetsTable();
             this.WriteBlocksToFile();
             this.WriteSetsToFile();
+            this.WriteSubtypesToFile();
+            this.WriteTypesToFile();
+            this.WriteCardLinksTable();
+
             this.DownloadCardImages();
             this.CreateBackups();
             this.DownloadSetSymbols();
@@ -192,6 +199,29 @@ namespace MtgJsonParser
             command.ExecuteNonQuery();
 
 
+            command.CommandText = "TRUNCATE types";
+            command.ExecuteNonQuery();
+
+            Console.WriteLine("Loading types table into database.");
+            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/types' INTO TABLE types LINES TERMINATED BY '\r\n'";
+            command.ExecuteNonQuery();
+
+
+            command.CommandText = "TRUNCATE subtypes";
+            command.ExecuteNonQuery();
+
+            Console.WriteLine("Loading subtypes table into database.");
+            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/subtypes' INTO TABLE subtypes LINES TERMINATED BY '\r\n'";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "TRUNCATE cardlinks";
+            command.ExecuteNonQuery();
+
+            Console.WriteLine("Loading card links table into database.");
+            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/links' INTO TABLE cardlinks LINES TERMINATED BY '\r\n'";
+            command.ExecuteNonQuery();
+
+
             Console.WriteLine("Updating old card IDs with new values.");
             command.CommandTimeout = 120;
             command.CommandText = "UPDATE usercards SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = usercards.cardid )";
@@ -211,6 +241,88 @@ namespace MtgJsonParser
             con.Close();
 
             return;
+        }
+
+        private void WriteTypesToFile()
+        {
+            this.typeList = new List<string>();
+            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            {
+                Set set = pair.Value;
+
+                if (setsToSkip.Contains(set.Code))
+                {
+                    continue;
+                }
+
+                foreach (Card card in set.Cards)
+                {
+                    if (card.Types == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (string type in card.Types)
+                    {
+                        if (!typeList.Contains(type))
+                        {
+                            this.typeList.Add(type);
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("Writing types table file.");
+            Encoding utf8WithoutBOM = new UTF8Encoding(false);
+            StreamWriter sw = new StreamWriter("temp/types", false, utf8WithoutBOM);
+
+            foreach (string type in this.typeList)
+            {
+                sw.WriteLine("\\N\t" + type);
+            }
+
+            sw.Close();
+        }
+
+        private void WriteSubtypesToFile()
+        {
+            this.subtypeList = new List<string>();
+            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            {
+                Set set = pair.Value;
+
+                if (setsToSkip.Contains(set.Code))
+                {
+                    continue;
+                }
+
+                foreach (Card card in set.Cards)
+                {
+                    if (card.SubTypes == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (string subtype in card.SubTypes)
+                    {
+                        if (!subtypeList.Contains(subtype))
+                        {
+                            this.subtypeList.Add(subtype);
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine("Writing subtypes table file.");
+            Encoding utf8WithoutBOM = new UTF8Encoding(false);
+            StreamWriter sw = new StreamWriter("temp/subtypes", false, utf8WithoutBOM);
+
+            foreach (string subtype in this.subtypeList)
+            {
+                sw.WriteLine("\\N\t" + subtype);
+            }
+
+            sw.Close();
         }
 
         private void DownloadSetSymbols()
@@ -349,6 +461,35 @@ namespace MtgJsonParser
             this.setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
         }
 
+        private void WriteCardLinksTable()
+        {
+            Console.WriteLine("Writing cards table file.");
+
+            Encoding utf8WithoutBOM = new UTF8Encoding(false);
+            StreamWriter sw = new StreamWriter("temp/links", false, utf8WithoutBOM);
+            foreach (KeyValuePair<string, Card> pair in this.uniqueCards)
+            {
+                Card card = pair.Value;
+
+                if (card.Names == null)
+                {
+                    continue;
+                }
+
+                foreach (string linkName in card.Names)
+                {
+                    if ( linkName == card.Name )
+                    {
+                        continue;
+                    }
+
+                    Card other = this.uniqueCards[linkName];
+                    sw.WriteLine(card.OracleID + "\t" + other.OracleID + "\t" + card.LinkType);
+                }
+            }
+            sw.Close();
+        }
+
         public void WriteCardsTable()
         {
             Console.WriteLine("Writing cards table file.");
@@ -428,7 +569,7 @@ namespace MtgJsonParser
                     continue;
                 }
 
-                sw.WriteLine(id + '\t' + set.Block);
+                sw.WriteLine(id + "\t" + set.Block);
                 blockMap.Add(set.Block, id);
                 ++id;
             }
@@ -455,7 +596,7 @@ namespace MtgJsonParser
                 str.Append(set.Name);
                 str.Append('\t');
 
-                if ( string.IsNullOrWhiteSpace(set.Block))
+                if (string.IsNullOrWhiteSpace(set.Block))
                 {
                     str.Append("\\N");
                 }
@@ -463,7 +604,7 @@ namespace MtgJsonParser
                 {
                     str.Append(blockMap[set.Block]);
                 }
-                
+
                 str.Append('\t');
 
                 str.Append(set.ReleaseDate);
