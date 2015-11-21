@@ -23,51 +23,19 @@ namespace MtgJsonParser
         List<string> typeList;
         List<string> subtypeList;
 
-        public string[] setsToSkip = {
-            "CEI",      // International Collector"s Edition (1993-12-01)
-            "CED",      // Collector"s Edition (1993-12-01)
-            "pDRC",     // Dragon Con (1994-01-01)
-            "pMEI",     // Media Inserts (1995-01-01)
-            "pLGM",     // Legend Membership (1995-01-01)
-            "RQS",      // Rivals Quick Start Set (1996-07-01)
-            "pARL",     // Arena League (1996-08-02)
-            "pCEL",     // Celebration (1996-08-14)
-            "MGB",      // Multiverse Gift Box (1996-11-01)
-            "ITP",      // Introductory Two-Player Set (1996-12-31)
-            "pPOD",     // Portal Demo Game (1997-05-01)
-            "VAN",      // Vanguard (1997-05-01)
-            "pPRE",     // Prerelease Events (1997-10-04)
-            "pJGP",     // Judge Gift Program (1998-06-01)
-            "pALP",     // Asia Pacific Land Program (1998-09-01)
-            "ATH",      // Anthologies (1998-11-01)
-            "pGRU",     // Guru (1999-07-12)
-            "pWOR",     // Worlds (1999-08-04)
-            "pWOS",     // Wizards of the Coast Online Store (1999-09-04)
-            "pSUS",     // Super Series (1999-12-01)
-            "pFNM",     // Friday Night Magic (2000-02-01)
-            "pELP",     // European Land Program (2000-02-05)
-            "pMPR",     // Magic Player Rewards (2001-05-01)
-            "DKM",      // Deckmasters (2001-12-01)
-            "pREL",     // Release Events (2003-07-26)
-            "p2HG",     // Two-Headed Giant Tournament (2005-12-09)
-            "pGTW",     // Gateway (2006-01-01)
-            "pCMP",     // Champs and States (2006-03-18)
-            "CST",      // Coldsnap Theme Decks (2006-07-21)
-            "pHHO",     // Happy Holidays (2006-12-31)
-            "pPRO",     // Pro Tour (2007-02-09)
-            "pGPX",     // Grand Prix (2007-02-24)
-            "pMGD",     // Magic Game Day (2007-07-14)
-            "pSUM",     // Summer of Magic (2007-07-21)
-            "pLPA",     // Launch Parties (2008-02-01)
-            "p15A",     // 15th Anniversary (2008-04-01)
-            "pWPN",     // Wizards Play Network (2008-10-01)
-            "pWCQ",     // World Magic Cup Qualifiers (2013-04-06)
-            "CPK",      // Clash Pack (2014-07-18)
-            "FRF_UGIN", // Ugin"s Fate promos (2015-01-17)
-        };
+        public List<string> setsToSkip = new List<string>();
 
         public Parser(bool downloadFile, bool refreshFromOldData)
         {
+            StreamReader reader = new StreamReader("data/sets_to_skip.txt");
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string setcode = line.Split('#')[0].Trim();
+                this.setsToSkip.Add(setcode);
+            }
+
+
             if (downloadFile)
             {
                 Console.WriteLine("Downloading data file.");
