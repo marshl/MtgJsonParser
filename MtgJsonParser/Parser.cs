@@ -76,6 +76,7 @@ namespace MtgJsonParser
                     wc.DownloadFile(Settings.Default.JsonUrl, Settings.Default.JsonZipFilename);
                 }
                 Console.WriteLine("Unzipping data file.");
+                Directory.Delete(Settings.Default.JsonDirectory, true);
                 System.IO.Compression.ZipFile.ExtractToDirectory(Settings.Default.JsonZipFilename, Settings.Default.JsonDirectory);
             }
 
@@ -107,9 +108,6 @@ namespace MtgJsonParser
             this.DownloadSetSymbols();
 
             MySqlCommand command = con.CreateCommand();
-
-            command.CommandText = "TRUNCATE oldtonewcards";
-            command.ExecuteNonQuery();
 
             command.CommandText = "TRUNCATE historicalcards";
             command.ExecuteNonQuery();
@@ -158,11 +156,9 @@ namespace MtgJsonParser
                 command.ExecuteNonQuery();
             }
 
-            command.CommandText = "TRUNCATE cards";
-            command.ExecuteNonQuery();
+            this.LoadLocalFileIntoTable("cards", "temp/cards", command);
 
-            Console.WriteLine("Loading cards table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/cards' INTO TABLE cards LINES TERMINATED BY '\r\n'";
+            command.CommandText = "TRUNCATE oldtonewcards";
             command.ExecuteNonQuery();
 
             command.CommandText = @"
@@ -174,73 +170,43 @@ namespace MtgJsonParser
             )";
             command.ExecuteNonQuery();
 
-
-            command.CommandText = "TRUNCATE cardsets";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading cardsets table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/cardsets' INTO TABLE cardsets LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
-
-            command.CommandText = "TRUNCATE blocks";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading blocks table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/blocks' INTO TABLE blocks LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
-
-            command.CommandText = "TRUNCATE sets";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading sets table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/sets' INTO TABLE sets LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
-
-            command.CommandText = "TRUNCATE types";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading types table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/types' INTO TABLE types LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
-
-            command.CommandText = "TRUNCATE subtypes";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading subtypes table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/subtypes' INTO TABLE subtypes LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
-            command.CommandText = "TRUNCATE cardlinks";
-            command.ExecuteNonQuery();
-
-            Console.WriteLine("Loading card links table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE 'temp/links' INTO TABLE cardlinks LINES TERMINATED BY '\r\n'";
-            command.ExecuteNonQuery();
-
+            this.LoadLocalFileIntoTable("cardsets", "temp/cardsets", command);
+            this.LoadLocalFileIntoTable("blocks", "temp/blocks", command);
+            this.LoadLocalFileIntoTable("sets", "temp/sets", command);
+            this.LoadLocalFileIntoTable("types", "temp/types", command);
+            this.LoadLocalFileIntoTable("subtypes", "temp/subtypes", command);
+            this.LoadLocalFileIntoTable("cardlinks", "temp/links", command);
 
             Console.WriteLine("Updating old card IDs with new values.");
-            command.CommandTimeout = 120;
-            command.CommandText = "UPDATE usercards SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = usercards.cardid )";
-            command.ExecuteNonQuery();
 
-            command.CommandText = "UPDATE usercardchanges SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = usercardchanges.cardid )";
-            command.ExecuteNonQuery();
-
-            command.CommandText = "UPDATE taglinks SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = taglinks.cardid )";
-            command.ExecuteNonQuery();
-
-            command.CommandText = "UPDATE deckcards SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = deckcards.cardid )";
-            command.ExecuteNonQuery();
+            this.UpdateTableWithNewCardIDs("usercards", command);
+            this.UpdateTableWithNewCardIDs("usercardchanges", command);
+            this.UpdateTableWithNewCardIDs("taglinks", command);
+            this.UpdateTableWithNewCardIDs("deckcards", command);
 
             command.Dispose();
 
             con.Close();
+        }
 
-            return;
+        private void UpdateTableWithNewCardIDs(string table, MySqlCommand command)
+        {
+            command.CommandTimeout = 120;
+            command.CommandText = $"UPDATE {table} t JOIN oldtonewcards o ON o.oldcardid = t.cardid SET t.cardid = o.newcardid";
+            //command.CommandText = $"UPDATE {table} SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = {table}.cardid )";
+            //command.CommandText = $"INSERT INTO {table} (cardid) SELECT oldcardid FROM oldtonewcards ON DUPLICATE KEY UPDATE cardid = newcardid";
+            command.ExecuteNonQuery();
+        }
+
+        private void LoadLocalFileIntoTable(string tablename, string filename, MySqlCommand command)
+        {
+            Console.WriteLine("Truncating " + tablename);
+            command.CommandText = "TRUNCATE " + tablename;
+            command.ExecuteNonQuery();
+
+            Console.WriteLine("Loading " + tablename + " table into database.");
+            command.CommandText = "LOAD DATA LOCAL INFILE '" + filename + "' INTO TABLE " + tablename + " LINES TERMINATED BY '\r\n'";
+            command.ExecuteNonQuery();
         }
 
         private void WriteTypesToFile()
@@ -257,16 +223,25 @@ namespace MtgJsonParser
 
                 foreach (Card card in set.Cards)
                 {
-                    if (card.Types == null)
+                    if (card.Types != null)
                     {
-                        continue;
+                        foreach (string type in card.Types)
+                        {
+                            if (!typeList.Contains(type))
+                            {
+                                this.typeList.Add(type);
+                            }
+                        }
                     }
 
-                    foreach (string type in card.Types)
+                    if (card.Supertypes != null)
                     {
-                        if (!typeList.Contains(type))
+                        foreach (string supertype in card.Supertypes)
                         {
-                            this.typeList.Add(type);
+                            if (!typeList.Contains(supertype))
+                            {
+                                this.typeList.Add(supertype);
+                            }
                         }
                     }
                 }
@@ -370,7 +345,7 @@ namespace MtgJsonParser
                     }
                     catch (WebException)
                     {
-                        //swallow
+                        // Swaller
                     }
                 }
             }
@@ -380,11 +355,28 @@ namespace MtgJsonParser
         private void CreateBackups()
         {
             Console.WriteLine("Creating backup files.");
-            string backupfile = "backup/" + string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now) + "magic_db.sql";
-            Process.Start("CMD.exe", "/C mysqldump -u root magic_db > " + backupfile);
 
-            backupfile = "backup/" + string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now) + "delverdb.sql";
-            Process.Start("CMD.exe", "/C mysqldump -u root delverdb > " + backupfile);
+            DirectoryInfo backupDir = Directory.CreateDirectory(Path.Combine("backup", string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now)));
+
+            string oldbackup = backupDir.FullName + "\\magic_db.sql";
+            Process p = Process.Start("CMD.exe", "/C mysqldump -u root magic_db > \"" + oldbackup + "\"");
+
+            p.WaitForExit();
+
+            string newbackup = backupDir.FullName + "\\delverdb.sql";
+            p = Process.Start("CMD.exe", "/C mysqldump -u root delverdb > \"" + newbackup + "\"");
+
+            p.WaitForExit();
+            //System.Threading.Thread.Sleep(500);
+
+            System.IO.Compression.ZipFile.CreateFromDirectory(backupDir.FullName, "backup\\" + backupDir.Name + ".zip");
+            //string cmd = "7z a backup\\" + backupDir.Name + ".7z \"" + backupDir.FullName + "\"";
+            //p = Process.Start("CMD.exe", "/C " + cmd);
+
+            //p.WaitForExit();
+
+            //System.Threading.Thread.Sleep(500);
+            backupDir.Delete(true);
         }
 
         private void DownloadCardImages()
@@ -478,7 +470,7 @@ namespace MtgJsonParser
 
                 foreach (string linkName in card.Names)
                 {
-                    if ( linkName == card.Name )
+                    if (linkName == card.Name)
                     {
                         continue;
                     }

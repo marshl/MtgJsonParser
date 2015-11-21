@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 
 namespace MtgJsonParser
 {
@@ -12,7 +8,7 @@ namespace MtgJsonParser
         {
             bool downloadFile = args.Contains("--download") || args.Contains("-d");
 
-            Parser p = new Parser(downloadFile, false);
+            Parser p = new Parser(false, false);
         }
     }
 }

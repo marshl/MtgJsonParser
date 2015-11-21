@@ -345,7 +345,7 @@ namespace MtgJsonParser
             output.Add(this.ColorFlags.ToString());
             output.Add(this.ColorIdentityFlags.ToString());
             output.Add(this.Colors != null ? this.Colors.Count.ToString() : "0");
-            output.Add(this.Types != null ? string.Join(" ", this.Types) : null);
+            output.Add(string.Join(" ", this.Supertypes != null ? string.Join(" ", this.Supertypes) : null, this.Types != null ? string.Join(" ", this.Types) : null));
             output.Add(this.SubTypes != null ? string.Join(" ", this.SubTypes) : null);
             output.Add(this.Power);
             output.Add(this.NumPower.ToString());
@@ -353,8 +353,6 @@ namespace MtgJsonParser
             output.Add(this.NumToughness.ToString());
             output.Add(this.Loyalty);
             output.Add(this.Text != null ? this.Text.Replace('\n', '~') : null);
-            //output.Add(this.LinkType);
-            //output.Add(this.LinkID != null ? this.LinkID.Value.ToString() : null);
 
             return output;
         }
