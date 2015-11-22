@@ -1,40 +1,37 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-using MtgJsonParser.Properties;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using MySql.Data.MySqlClient;
-using System.Diagnostics;
-
-namespace MtgJsonParser
+﻿namespace MtgJsonParser
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Net;
+    using System.Text;
+    using Properties;
+    using Newtonsoft.Json;
+    using MySql.Data.MySqlClient;
+    using System.Diagnostics;
+
+    /// <summary>
+    /// 
+    /// </summary>
     public class Parser
     {
+        /// <summary>
+        /// 
+        /// </summary>
         private Dictionary<string, Set> setDictionary;
+
+
         Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
         Dictionary<string, int> blockMap;
 
-        List<string> typeList;
-        List<string> subtypeList;
-
-        public List<string> setsToSkip = new List<string>();
+        /// <summary>
+        /// The list of sets that do not need to be included in the final data set
+        /// </summary>
+        public List<string> setsToSkip;
 
         public Parser(bool downloadFile, bool refreshFromOldData)
         {
-            StreamReader reader = new StreamReader("data/sets_to_skip.txt");
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                string setcode = line.Split('#')[0].Trim();
-                this.setsToSkip.Add(setcode);
-            }
-
+            this.LoadSetsToSkip();
 
             if (downloadFile)
             {
@@ -157,29 +154,53 @@ namespace MtgJsonParser
             con.Close();
         }
 
+        /// <summary>
+        /// Loads the file that contains the list of sets to skip and stores it in a list.
+        /// </summary>
+        private void LoadSetsToSkip()
+        {
+            this.setsToSkip = new List<string>();
+            StreamReader reader = new StreamReader("data/sets_to_skip.txt");
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string setcode = line.Split('#')[0].Trim();
+                this.setsToSkip.Add(setcode);
+            }
+        }
+
+        /// <summary>
+        /// Updates the usercard IDs in the given table name with new IDs, using the oldtonewcards table.
+        /// </summary>
+        /// <param name="table">The table to update.</param>
+        /// <param name="command">The command to update the table with.</param>
         private void UpdateTableWithNewCardIDs(string table, MySqlCommand command)
         {
             command.CommandTimeout = 120;
             command.CommandText = $"UPDATE {table} t JOIN oldtonewcards o ON o.oldcardid = t.cardid SET t.cardid = o.newcardid";
-            //command.CommandText = $"UPDATE {table} SET cardid = ( SELECT newcardid FROM oldtonewcards WHERE oldcardid = {table}.cardid )";
-            //command.CommandText = $"INSERT INTO {table} (cardid) SELECT oldcardid FROM oldtonewcards ON DUPLICATE KEY UPDATE cardid = newcardid";
             command.ExecuteNonQuery();
         }
 
+        /// <summary>
+        /// Loads the contents of a local file into the given table.
+        /// </summary>
+        /// <param name="tablename">The name of the table to load the data into.</param>
+        /// <param name="filename">The name of the local file to load the data from.</param>
+        /// <param name="command">The MySQL command to perform the update with.</param>
         private void LoadLocalFileIntoTable(string tablename, string filename, MySqlCommand command)
         {
-            Console.WriteLine("Truncating " + tablename);
-            command.CommandText = "TRUNCATE " + tablename;
+            Console.WriteLine($"Truncating {tablename}");
+            command.CommandText = $"TRUNCATE {tablename}";
             command.ExecuteNonQuery();
 
-            Console.WriteLine("Loading " + tablename + " table into database.");
-            command.CommandText = "LOAD DATA LOCAL INFILE '" + filename + "' INTO TABLE " + tablename + " LINES TERMINATED BY '\r\n'";
+            Console.WriteLine($"Loading {tablename} table into database.");
+            command.CommandText = $"LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {tablename} LINES TERMINATED BY '\r\n'";
             command.ExecuteNonQuery();
         }
 
         private void WriteTypesToFile()
         {
-            this.typeList = new List<string>();
+            List<string> typeList = new List<string>();
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
                 Set set = pair.Value;
@@ -197,7 +218,7 @@ namespace MtgJsonParser
                         {
                             if (!typeList.Contains(type))
                             {
-                                this.typeList.Add(type);
+                                typeList.Add(type);
                             }
                         }
                     }
@@ -208,7 +229,7 @@ namespace MtgJsonParser
                         {
                             if (!typeList.Contains(supertype))
                             {
-                                this.typeList.Add(supertype);
+                                typeList.Add(supertype);
                             }
                         }
                     }
@@ -219,7 +240,7 @@ namespace MtgJsonParser
             Encoding utf8WithoutBOM = new UTF8Encoding(false);
             StreamWriter sw = new StreamWriter("temp/types", false, utf8WithoutBOM);
 
-            foreach (string type in this.typeList)
+            foreach (string type in typeList)
             {
                 sw.WriteLine("\\N\t" + type);
             }
@@ -229,7 +250,7 @@ namespace MtgJsonParser
 
         private void WriteSubtypesToFile()
         {
-            this.subtypeList = new List<string>();
+            List<string> subtypeList = new List<string>();
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
                 Set set = pair.Value;
@@ -250,7 +271,7 @@ namespace MtgJsonParser
                     {
                         if (!subtypeList.Contains(subtype))
                         {
-                            this.subtypeList.Add(subtype);
+                            subtypeList.Add(subtype);
                         }
                     }
                 }
@@ -260,7 +281,7 @@ namespace MtgJsonParser
             Encoding utf8WithoutBOM = new UTF8Encoding(false);
             StreamWriter sw = new StreamWriter("temp/subtypes", false, utf8WithoutBOM);
 
-            foreach (string subtype in this.subtypeList)
+            foreach (string subtype in subtypeList)
             {
                 sw.WriteLine("\\N\t" + subtype);
             }
@@ -275,8 +296,6 @@ namespace MtgJsonParser
             WebClient wc = new WebClient();
             DirectoryInfo imageDir = new DirectoryInfo(@"C:\wamp\www\delverdb\images\exp");
 
-            //char[] rarities = { 'C', 'U', 'R', 'M', 'L', 'S' };
-
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
                 Set set = pair.Value;
@@ -290,10 +309,10 @@ namespace MtgJsonParser
 
                 foreach (Card card in set.Cards)
                 {
-                    char rarity = MtgConstants.RarityToChar(MtgConstants.ParseRarity(card.Rarity));
-                    if (!rarities.Contains(rarity))
+                    Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
+                    if (!rarities.Contains(rarity.GetSymbol()))
                     {
-                        rarities.Add(rarity);
+                        rarities.Add(rarity.GetSymbol());
                     }
                 }
 
@@ -498,7 +517,8 @@ namespace MtgJsonParser
                     str.Append(!string.IsNullOrWhiteSpace(card.Flavortext) ? card.Flavortext.Replace("\n", "~") : "\\N");
                     str.Append('\t');
 
-                    str.Append(MtgConstants.RarityToChar(MtgConstants.ParseRarity(card.Rarity)));
+                    Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
+                    str.Append(rarity.GetSymbol());
                     str.Append('\t');
 
                     str.Append(card.Number);

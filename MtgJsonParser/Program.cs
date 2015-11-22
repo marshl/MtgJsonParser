@@ -1,10 +1,17 @@
-﻿using System.Linq;
-
-namespace MtgJsonParser
+﻿namespace MtgJsonParser
 {
-    class Program
+    using System.Linq;
+
+    /// <summary>
+    /// The main program class
+    /// </summary>
+    public class Program
     {
-        static void Main(string[] args)
+        /// <summary>
+        /// The entry point the program
+        /// </summary>
+        /// <param name="args">The arguments to the program.</param>
+        public static void Main(string[] args)
         {
             bool downloadFile = args.Contains("--download") || args.Contains("-d");
 

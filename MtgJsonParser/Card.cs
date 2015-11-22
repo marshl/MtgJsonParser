@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace MtgJsonParser
 {
@@ -241,14 +242,18 @@ namespace MtgJsonParser
         {
             get
             {
-                int flags = 0;
-                if (this.Colors != null)
+                if (this.Colors == null)
                 {
-                    foreach (string str in this.Colors)
-                    {
-                        flags |= MtgConstants.ColourCodeToFlag(MtgConstants.ColourNameToCode(str));
-                    }
+                    return 0;
                 }
+
+                int flags = 0;
+                foreach (string str in this.Colors)
+                {
+                    Colour c = Array.Find((Colour[])Enum.GetValues(typeof(Colour)), s => s.GetName().Equals(str, StringComparison.OrdinalIgnoreCase));
+                    flags |= c.GetFlagValue();
+                }
+
                 return flags;
             }
         }
@@ -260,13 +265,13 @@ namespace MtgJsonParser
                 int colorIdentity = this.ColorFlags;
                 if (this.Text != null)
                 {
-                    foreach (char c in MtgConstants.COLOUR_CODES)
+                    foreach (Colour c in Enum.GetValues(typeof(Colour)))
                     {
-                        Regex regex = new Regex("\\{.*?" + c + ".*?\\}");
+                        Regex regex = new Regex("\\{.*?" + c.GetSymbol() + ".*?\\}");
                         Match match = regex.Match(this.Text);
                         if (match.Success)
                         {
-                            colorIdentity |= MtgConstants.ColourCodeToFlag(c);
+                            colorIdentity |= c.GetFlagValue();
                         }
                     }
                 }
