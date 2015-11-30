@@ -24,6 +24,9 @@
         Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
         Dictionary<string, int> blockMap;
 
+        const string InputDictionaryFile = @"C:\Users\Liam\Common\dictionary.txt";
+        const string OutputDictionaryFile = @"C:\Users\Liam\AppData\Roaming\Microsoft\UProof\MTG.DIC";
+
         /// <summary>
         /// The list of sets that do not need to be included in the final data set
         /// </summary>
@@ -67,6 +70,7 @@
             this.WriteSubtypesToFile();
             this.WriteTypesToFile();
             this.WriteCardLinksTable();
+            this.WriteDictionaryFile();
 
             this.DownloadCardImages();
             this.CreateBackups();
@@ -154,6 +158,53 @@
             con.Close();
         }
 
+        private void WriteDictionaryFile()
+        {
+            HashSet<string> realWordSet = new HashSet<string>();
+            using (StreamReader dictionaryReader = new StreamReader(InputDictionaryFile))
+            {
+                string line;
+                while ((line = dictionaryReader.ReadLine()) != null)
+                {
+                    realWordSet.Add(line.ToLower());
+                }
+            }
+            Console.WriteLine("Done");
+
+            Console.Write("Finding unique names... ");
+            HashSet<string> names = new HashSet<string>();
+            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            {
+                Set set = pair.Value;
+
+                if (setsToSkip.Contains(set.Code))
+                {
+                    continue;
+                }
+                
+                foreach (Card card in set.Cards)
+                {
+                    string[] chunks = card.Name.Split(' ');
+                    foreach (string chunk in chunks)
+                    {
+                        string newChunk = chunk.Replace(",", "").Replace(":", "");
+                        if (!realWordSet.Contains(newChunk.ToLower()))
+                        {
+                            names.Add(newChunk);
+                        }
+                    }
+                }
+            }
+
+            using (StreamWriter dictionaryOut = new StreamWriter(OutputDictionaryFile, false, Encoding.Unicode))
+            {
+                foreach (string name in names)
+                {
+                    dictionaryOut.WriteLine(name);
+                }
+            }
+        }
+
         /// <summary>
         /// Loads the file that contains the list of sets to skip and stores it in a list.
         /// </summary>
@@ -198,9 +249,12 @@
             command.ExecuteNonQuery();
         }
 
+        /// <summary>
+        /// Finds all the different types and supertypes and writes them to a file.
+        /// </summary>
         private void WriteTypesToFile()
         {
-            List<string> typeList = new List<string>();
+            HashSet<string> typeSet = new HashSet<string>();
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
                 Set set = pair.Value;
@@ -210,29 +264,11 @@
                     continue;
                 }
 
-                foreach (Card card in set.Cards)
+                // Ignore Big Furry monster, as it has some weird types
+                foreach (Card card in set.Cards.FindAll(x => x.Name != "B.F.M. (Big Furry Monster)"))
                 {
-                    if (card.Types != null)
-                    {
-                        foreach (string type in card.Types)
-                        {
-                            if (!typeList.Contains(type))
-                            {
-                                typeList.Add(type);
-                            }
-                        }
-                    }
-
-                    if (card.Supertypes != null)
-                    {
-                        foreach (string supertype in card.Supertypes)
-                        {
-                            if (!typeList.Contains(supertype))
-                            {
-                                typeList.Add(supertype);
-                            }
-                        }
-                    }
+                    card.Types?.ForEach(x => typeSet.Add(x));
+                    card.Supertypes?.ForEach(x => typeSet.Add(x));
                 }
             }
 
@@ -240,17 +276,20 @@
             Encoding utf8WithoutBOM = new UTF8Encoding(false);
             StreamWriter sw = new StreamWriter("temp/types", false, utf8WithoutBOM);
 
-            foreach (string type in typeList)
+            foreach (string type in typeSet)
             {
-                sw.WriteLine("\\N\t" + type);
+                sw.WriteLine($"\\N\t{type}");
             }
 
             sw.Close();
         }
 
+        /// <summary>
+        /// Writes all unique subtypes out to a load file.
+        /// </summary>
         private void WriteSubtypesToFile()
         {
-            List<string> subtypeList = new List<string>();
+            HashSet<string> subtypeSet = new HashSet<string>();
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
                 Set set = pair.Value;
@@ -262,18 +301,7 @@
 
                 foreach (Card card in set.Cards)
                 {
-                    if (card.SubTypes == null)
-                    {
-                        continue;
-                    }
-
-                    foreach (string subtype in card.SubTypes)
-                    {
-                        if (!subtypeList.Contains(subtype))
-                        {
-                            subtypeList.Add(subtype);
-                        }
-                    }
+                    card.SubTypes?.ForEach(x => subtypeSet.Add(x));
                 }
             }
 
@@ -281,14 +309,17 @@
             Encoding utf8WithoutBOM = new UTF8Encoding(false);
             StreamWriter sw = new StreamWriter("temp/subtypes", false, utf8WithoutBOM);
 
-            foreach (string subtype in subtypeList)
+            foreach (string subtype in subtypeSet)
             {
-                sw.WriteLine("\\N\t" + subtype);
+                sw.WriteLine($"\\N\t{subtype}");
             }
 
             sw.Close();
         }
 
+        /// <summary>
+        /// Downloads all set symbol files to 
+        /// </summary>
         private void DownloadSetSymbols()
         {
             Console.WriteLine("Downloading setcodes");
@@ -318,8 +349,8 @@
 
                 foreach (char c in rarities)
                 {
-                    string url = "http://gatherer.wizards.com/Handlers/Image.ashx?type=symbol&set=" + set.Code + "&size=small&rarity=" + c;
-                    string filename = Path.Combine(imageDir.FullName, set.Code + "_" + c + "_small.jpg");
+                    string url = $"http://gatherer.wizards.com/Handlers/Image.ashx?type=symbol&set={set.Code}&size=small&rarity={c}";
+                    string filename = Path.Combine(imageDir.FullName, $"{set.Code}_{c}_small.jpg");
                     if (File.Exists(filename))
                     {
                         continue;
@@ -332,7 +363,7 @@
                     }
                     catch (WebException)
                     {
-                        // Swaller
+                        // Swallow
                     }
                 }
             }
@@ -345,24 +376,18 @@
 
             DirectoryInfo backupDir = Directory.CreateDirectory(Path.Combine("backup", string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now)));
 
-            string oldbackup = backupDir.FullName + "\\magic_db.sql";
-            Process p = Process.Start("CMD.exe", "/C mysqldump -u root magic_db > \"" + oldbackup + "\"");
+            string oldbackup = $"{backupDir.FullName}\\magic_db.sql";
+            Process p = Process.Start("CMD.exe", $"/C mysqldump -u root magic_db > \"{oldbackup}\"");
 
             p.WaitForExit();
 
-            string newbackup = backupDir.FullName + "\\delverdb.sql";
-            p = Process.Start("CMD.exe", "/C mysqldump -u root delverdb > \"" + newbackup + "\"");
+            string newbackup = $"{backupDir.FullName}\\delverdb.sql";
+            p = Process.Start("CMD.exe", $"/C mysqldump -u root delverdb > \"{newbackup}\"");
 
             p.WaitForExit();
-            //System.Threading.Thread.Sleep(500);
 
-            System.IO.Compression.ZipFile.CreateFromDirectory(backupDir.FullName, "backup\\" + backupDir.Name + ".zip");
-            //string cmd = "7z a backup\\" + backupDir.Name + ".7z \"" + backupDir.FullName + "\"";
-            //p = Process.Start("CMD.exe", "/C " + cmd);
+            System.IO.Compression.ZipFile.CreateFromDirectory(backupDir.FullName, $"backup\\{backupDir.Name}.zip");
 
-            //p.WaitForExit();
-
-            //System.Threading.Thread.Sleep(500);
             backupDir.Delete(true);
         }
 
@@ -375,20 +400,16 @@
 
             foreach (KeyValuePair<string, Set> pair in setDictionary)
             {
-                foreach (Card card in pair.Value.Cards)
+                foreach (Card card in pair.Value.Cards.FindAll(x => x.MultiverseID != null))
                 {
-                    if (card.MultiverseID == null)
-                    {
-                        continue;
-                    }
-
                     string filename = Path.Combine(imageDir.FullName, card.MultiverseID + ".png");
-                    string url = "http://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=" + card.MultiverseID + "&type=card";
+
                     if (File.Exists(filename))
                     {
                         continue;
                     }
 
+                    string url = $"http://gatherer.wizards.com/Handlers/Image.ashx?multiverseid={card.MultiverseID}&type=card";
                     try
                     {
                         wc.DownloadFile(url, filename);
@@ -431,6 +452,9 @@
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void ReadSetData()
         {
             Console.WriteLine("Reading set data.");
@@ -455,17 +479,13 @@
                     continue;
                 }
 
-                foreach (string linkName in card.Names)
+                foreach (string linkName in card.Names.FindAll(x => x != card.Name))
                 {
-                    if (linkName == card.Name)
-                    {
-                        continue;
-                    }
-
                     Card other = this.uniqueCards[linkName];
-                    sw.WriteLine(card.OracleID + "\t" + other.OracleID + "\t" + card.LinkType);
+                    sw.WriteLine($"{card.OracleID}\t{other.OracleID}\t{card.LinkType}");
                 }
             }
+
             sw.Close();
         }
 
@@ -480,6 +500,7 @@
                 Card card = pair.Value;
                 sw.WriteLine(card.GetOracleLine());
             }
+
             sw.Close();
         }
 
@@ -514,7 +535,7 @@
                     str.Append(card.Artist);
                     str.Append('\t');
 
-                    str.Append(!string.IsNullOrWhiteSpace(card.Flavortext) ? card.Flavortext.Replace("\n", "~") : "\\N");
+                    str.Append(Nvl(card.Flavortext?.Replace("\n", "~")));
                     str.Append('\t');
 
                     Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
@@ -549,7 +570,7 @@
                     continue;
                 }
 
-                sw.WriteLine(id + "\t" + set.Block);
+                sw.WriteLine($"{id}\t{set.Block}");
                 blockMap.Add(set.Block, id);
                 ++id;
             }
@@ -557,6 +578,9 @@
             sw.Close();
         }
 
+        /// <summary>
+        /// Writes the set list out to a loading file.
+        /// </summary>
         private void WriteSetsToFile()
         {
             Console.WriteLine("Writing cardsets table file.");
@@ -586,12 +610,16 @@
                 }
 
                 str.Append('\t');
-
                 str.Append(set.ReleaseDate);
 
                 sw.WriteLine(str.ToString());
             }
             sw.Close();
+        }
+
+        public string Nvl(string str)
+        {
+            return str ?? "\\N";
         }
     }
 

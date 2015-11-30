@@ -58,7 +58,6 @@
     <Compile Include="EnumExtensions.cs" />
     <Compile Include="ForeignName.cs" />
     <Compile Include="FormatLegality.cs" />
-    <Compile Include="MtgConstants.cs" />
     <Compile Include="Parser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
