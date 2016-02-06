@@ -51,6 +51,9 @@ namespace MtgJsonParser
         [JsonProperty("colors")]
         public List<string> Colors { get; set; }
 
+        [JsonProperty("colorIdentity")]
+        public List<string> ColourIdentity { get; set; }
+
         /// <summary>
         /// The card type. This is the type you would see on the card if printed today. Note: The dash is a UTF8 'long dash' as per the MTG rules
         /// </summary>
@@ -262,20 +265,19 @@ namespace MtgJsonParser
         {
             get
             {
-                int colorIdentity = this.ColorFlags;
-                if (this.Text != null)
+                if (this.ColourIdentity == null)
                 {
-                    foreach (Colour c in Enum.GetValues(typeof(Colour)))
-                    {
-                        Regex regex = new Regex("\\{.*?" + c.GetSymbol() + ".*?\\}");
-                        Match match = regex.Match(this.Text);
-                        if (match.Success)
-                        {
-                            colorIdentity |= c.GetFlagValue();
-                        }
-                    }
+                    return 0;
                 }
-                return colorIdentity;
+
+                int flags = 0;
+                foreach (string str in this.ColourIdentity)
+                {
+                    Colour c = Array.Find((Colour[])Enum.GetValues(typeof(Colour)), s => s.GetName().Equals(str, StringComparison.OrdinalIgnoreCase));
+                    flags |= c.GetFlagValue();
+                }
+
+                return flags;
             }
         }
 
