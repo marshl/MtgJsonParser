@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Text;
     using Properties;
@@ -32,6 +33,8 @@
         /// </summary>
         public List<string> setsToSkip;
 
+        private Dictionary<string, List<string>> additionalBlocks;
+
         public Parser(bool downloadFile, bool refreshFromOldData)
         {
             this.LoadSetsToSkip();
@@ -49,6 +52,7 @@
             }
 
             this.ReadSetData();
+            this.LoadAdditionalBlocks();
             this.SetOracleIDs();
             Directory.CreateDirectory("temp");
             Directory.CreateDirectory("backup");
@@ -181,7 +185,7 @@
                 {
                     continue;
                 }
-                
+
                 foreach (Card card in set.Cards)
                 {
                     string[] chunks = card.Name.Split(' ');
@@ -217,6 +221,22 @@
             {
                 string setcode = line.Split('#')[0].Trim();
                 this.setsToSkip.Add(setcode);
+            }
+        }
+
+        private void LoadAdditionalBlocks()
+        {
+            this.additionalBlocks = new Dictionary<string, List<string>>();
+            StreamReader reader = new StreamReader("data/additional_blocks.txt");
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string[] strs = line.Split('\t');
+                Debug.Assert(strs.Length > 1);
+                string blockname = strs[0].Trim();
+                List<string> sets = strs[1].Split(' ').ToList();
+                sets.ForEach(x => x = x.Trim());
+                additionalBlocks.Add(blockname, sets);
             }
         }
 
@@ -570,9 +590,19 @@
                     continue;
                 }
 
-                sw.WriteLine($"{id}\t{set.Block}");
                 blockMap.Add(set.Block, id);
                 ++id;
+            }
+
+            foreach (KeyValuePair<string, List<string>> pair in this.additionalBlocks)
+            {
+                blockMap.Add(pair.Key, id);
+                ++id;
+            }
+
+            foreach (KeyValuePair<string, int> pair in this.blockMap)
+            {
+                sw.WriteLine($"{pair.Value}\t{pair.Key}");
             }
 
             sw.Close();
@@ -590,6 +620,12 @@
             foreach (KeyValuePair<string, Set> pair in this.setDictionary)
             {
                 Set set = pair.Value;
+
+                if (setsToSkip.Contains(set.Code))
+                {
+                    continue;
+                }
+
                 StringBuilder str = new StringBuilder();
 
                 str.Append("\\N\t");
@@ -602,7 +638,20 @@
 
                 if (string.IsNullOrWhiteSpace(set.Block))
                 {
-                    str.Append("\\N");
+                    bool inAdditionalBlock = false;
+                    foreach (KeyValuePair<string, List<string>> blockPair in this.additionalBlocks)
+                    {
+                        if (blockPair.Value.Contains(set.Code))
+                        {
+                            str.Append(blockMap[blockPair.Key]);
+                            inAdditionalBlock = true;
+                        }
+                    }
+
+                    if (!inAdditionalBlock)
+                    {
+                        str.Append("\\N");
+                    }
                 }
                 else
                 {
