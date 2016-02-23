@@ -11,7 +11,7 @@
         /// The colour white
         /// </summary>
         [ColourFlag(1 << 0)]
-        [ColourSymbol('W')]
+        [ColourSymbol("W")]
         [ColourName("WHITE")]
         WHITE,
 
@@ -19,7 +19,7 @@
         /// The colour blue
         /// </summary>
         [ColourFlag(1 << 1)]
-        [ColourSymbol('U')]
+        [ColourSymbol("U")]
         [ColourName("BLUE")]
         BLUE,
 
@@ -27,7 +27,7 @@
         /// The colour black
         /// </summary>
         [ColourFlag(1 << 2)]
-        [ColourSymbol('B')]
+        [ColourSymbol("B")]
         [ColourName("BLACK")]
         BLACK,
 
@@ -35,7 +35,7 @@
         /// The colour red
         /// </summary>
         [ColourFlag(1 << 3)]
-        [ColourSymbol('R')]
+        [ColourSymbol("R")]
         [ColourName("RED")]
         RED,
 
@@ -43,7 +43,7 @@
         /// The colour green
         /// </summary>
         [ColourFlag(1 << 4)]
-        [ColourSymbol('G')]
+        [ColourSymbol("G")]
         [ColourName("GREEN")]
         GREEN,
     }
@@ -68,7 +68,7 @@
         /// </summary>
         /// <param name="colour">The colour enum to get the symbol for.</param>
         /// <returns>The symbol of the given colour.</returns>
-        public static char GetSymbol(this Colour colour)
+        public static string GetSymbol(this Colour colour)
         {
             return EnumExtensions.GetAttribute<ColourSymbol>(colour).Value;
         }
@@ -113,7 +113,7 @@
         /// Initializes a new instance of the <see cref="ColourSymbol"/> class.
         /// </summary>
         /// <param name="value">The symbol character to use.</param>
-        public ColourSymbol(char value)
+        public ColourSymbol(string value)
         {
             this.Value = value;
         }
@@ -121,7 +121,7 @@
         /// <summary>
         /// Gets or sets the value of this colour symbol.
         /// </summary>
-        public char Value { get; set; }
+        public string Value { get; set; }
     }
 
     /// <summary>

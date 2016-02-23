@@ -273,7 +273,7 @@ namespace MtgJsonParser
                 int flags = 0;
                 foreach (string str in this.ColourIdentity)
                 {
-                    Colour c = Array.Find((Colour[])Enum.GetValues(typeof(Colour)), s => s.GetName().Equals(str, StringComparison.OrdinalIgnoreCase));
+                    Colour c = Array.Find((Colour[])Enum.GetValues(typeof(Colour)), s => s.GetSymbol().Equals(str, StringComparison.OrdinalIgnoreCase));
                     flags |= c.GetFlagValue();
                 }
 
