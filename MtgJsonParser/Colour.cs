@@ -1,6 +1,7 @@
 ﻿namespace MtgJsonParser
 {
     using System;
+    using System.Collections.Generic;
 
     /// <summary>
     /// All the colours of magic
@@ -13,7 +14,7 @@
         [ColourFlag(1 << 0)]
         [ColourSymbol("W")]
         [ColourName("WHITE")]
-        WHITE,
+        White,
 
         /// <summary>
         /// The colour blue
@@ -21,7 +22,7 @@
         [ColourFlag(1 << 1)]
         [ColourSymbol("U")]
         [ColourName("BLUE")]
-        BLUE,
+        Blue,
 
         /// <summary>
         /// The colour black
@@ -29,7 +30,7 @@
         [ColourFlag(1 << 2)]
         [ColourSymbol("B")]
         [ColourName("BLACK")]
-        BLACK,
+        Black,
 
         /// <summary>
         /// The colour red
@@ -37,7 +38,7 @@
         [ColourFlag(1 << 3)]
         [ColourSymbol("R")]
         [ColourName("RED")]
-        RED,
+        Red,
 
         /// <summary>
         /// The colour green
@@ -45,7 +46,7 @@
         [ColourFlag(1 << 4)]
         [ColourSymbol("G")]
         [ColourName("GREEN")]
-        GREEN,
+        Green,
     }
 
     /// <summary>
@@ -81,6 +82,19 @@
         public static string GetName(this Colour colour)
         {
             return EnumExtensions.GetAttribute<ColourName>(colour).Value;
+        }
+
+        public static int ConvertStringsToFlags(List<string> colours)
+        {
+            int flags = 0;
+            var colourEnums = (Colour[])Enum.GetValues(typeof(Colour));
+            foreach (string str in colours)
+            {
+                Colour c = Array.Find(colourEnums, s => s.GetSymbol().Equals(str, StringComparison.OrdinalIgnoreCase));
+                flags |= c.GetFlagValue();
+            }
+
+            return flags;
         }
     }
 

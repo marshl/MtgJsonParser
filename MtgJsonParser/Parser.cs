@@ -491,7 +491,6 @@ namespace MtgJsonParser
 
                 foreach (Card card in set.Cards)
                 {
-                    card.ParentSet = pair.Value;
                     Card existingCard;
                     if (!uniqueCards.TryGetValue(card.Name, out existingCard))
                     {
@@ -523,7 +522,7 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// Writes all card links out to a tab seperated file
+        /// Writes all card links out to a tab separated file
         /// </summary>
         private void WriteCardLinksTable()
         {
@@ -546,7 +545,7 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// WRites all oracle card information to a tab seperated file.
+        /// WRites all oracle card information to a tab separated file.
         /// </summary>
         private void WriteCardsTable()
         {
@@ -564,51 +563,46 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// 
+        /// Writes the card set information to a tab separated file.
         /// </summary>
         private void WriteCardSetsTable()
         {
             Console.Write("Writing cardsets table file... ");
             StreamWriter sw = new StreamWriter("temp/cardsets", false, defaultFileEncoding);
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
-
+                
                 foreach (Card card in set.Cards)
                 {
-                    StringBuilder str = new StringBuilder();
+                    StringBuilder bldr = new StringBuilder();
 
                     // Set the id column to NULL so it is auto-incremented
-                    str.Append("\\N\t");
+                    bldr.Append("\\N\t");
 
-                    str.Append(card.OracleID);
-                    str.Append('\t');
+                    bldr.Append(card.OracleID);
+                    bldr.Append('\t');
 
-                    str.Append(set.Code);
-                    str.Append('\t');
+                    bldr.Append(set.Code);
+                    bldr.Append('\t');
 
-                    str.Append(card.MultiverseID);
-                    str.Append('\t');
+                    bldr.Append(card.MultiverseID);
+                    bldr.Append('\t');
 
-                    str.Append(card.Artist);
-                    str.Append('\t');
+                    bldr.Append(card.Artist);
+                    bldr.Append('\t');
 
-                    str.Append(card.Flavortext?.Replace("\n", "~") ?? "\\N");
-                    str.Append('\t');
+                    bldr.Append(card.Flavortext?.Replace("\n", "~") ?? "\\N");
+                    bldr.Append('\t');
 
                     Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
-                    str.Append(rarity.GetSymbol());
-                    str.Append('\t');
+                    bldr.Append(rarity.GetSymbol());
+                    bldr.Append('\t');
 
-                    str.Append(card.Number);
+                    bldr.Append(card.Number);
 
-                    sw.WriteLine(str.ToString());
+                    sw.WriteLine(bldr.ToString());
                 }
             }
 
@@ -617,7 +611,7 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// Writes the list of blocks out to a tab seperated file.
+        /// Writes the list of blocks out to a tab separated file.
         /// </summary>
         private void WriteBlocksToFile()
         {
