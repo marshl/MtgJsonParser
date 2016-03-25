@@ -291,37 +291,48 @@ namespace MtgJsonParser
             }
         }
 
+        /// <summary>
+        /// Gets the numeric power of the card.
+        /// </summary>
         public float NumPower
         {
             get
             {
-                if (this.Power == null)
-                {
-                    return 0;
-                }
-
-                Regex numRegex = new Regex("(-?\\d+)");
-                Match match = numRegex.Match(this.Power);
-                return match.Success ? int.Parse(match.Groups[1].Value) : 0;
+                return ParseStringAsFloat(this.Power);
             }
         }
 
         /// <summary>
-        /// Gets the numeric value of 
+        /// Gets the numeric toughness of the card.
         /// </summary>
         public float NumToughness
         {
             get
             {
-                if (this.Toughness == null)
-                {
-                    return 0;
-                }
-
-                Regex numRegex = new Regex("(-?\\d+)");
-                Match match = numRegex.Match(this.Toughness);
-                return match.Success ? int.Parse(match.Groups[1].Value) : 0;
+                return ParseStringAsFloat(this.Toughness);
             }
+        }
+
+        /// <summary>
+        /// Parses the given string and returns the numeric component of it
+        /// </summary>
+        /// <param name="input">The string to parse.</param>
+        /// <returns>The numeric component of the string if applicable, otherwise 0.</returns>
+        public static float ParseStringAsFloat(string input)
+        {
+            if (input == null)
+            {
+                return 0;
+            }
+
+            Regex numRegex = new Regex(@"(-?(?:\d+)?(?:\.\d+)?)");
+            Match match = numRegex.Match(input);
+            if (!match.Success || string.IsNullOrEmpty(match.Groups[1].Value))
+            {
+                return 0;
+            }
+
+            return float.Parse(match.Groups[1].Value);
         }
 
         /// <summary>
