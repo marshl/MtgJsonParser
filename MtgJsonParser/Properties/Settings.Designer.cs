@@ -131,5 +131,29 @@ namespace MtgJsonParser.Properties {
                 this["MySqlPort"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("C:\\Users\\Liam\\Common\\dictionary.txt")]
+        public string InputDictionaryFilename {
+            get {
+                return ((string)(this["InputDictionaryFilename"]));
+            }
+            set {
+                this["InputDictionaryFilename"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("C:\\Users\\Liam\\AppData\\Roaming\\Microsoft\\UProof\\MTG.DIC")]
+        public string OutputDictionaryFilename {
+            get {
+                return ((string)(this["OutputDictionaryFilename"]));
+            }
+            set {
+                this["OutputDictionaryFilename"] = value;
+            }
+        }
     }
 }

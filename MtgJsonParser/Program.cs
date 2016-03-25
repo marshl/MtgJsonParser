@@ -15,7 +15,7 @@
         {
             bool downloadFile = args.Contains("--download") || args.Contains("-d");
 
-            Parser p = new Parser(true, false);
+            Parser p = new Parser(false, false);
         }
     }
 }

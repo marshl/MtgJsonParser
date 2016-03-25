@@ -29,5 +29,11 @@
     <Setting Name="MySqlPort" Type="System.String" Scope="User">
       <Value Profile="(Default)">3306</Value>
     </Setting>
+    <Setting Name="InputDictionaryFilename" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Users\Liam\Common\dictionary.txt</Value>
+    </Setting>
+    <Setting Name="OutputDictionaryFilename" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Users\Liam\AppData\Roaming\Microsoft\UProof\MTG.DIC</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

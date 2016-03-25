@@ -1,4 +1,20 @@
-﻿namespace MtgJsonParser
+﻿//-----------------------------------------------------------------------
+// <copyright file="Parser.cs" company="marshl">
+// Copyright 2016, Liam Marshall, marshl.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// </copyright>
+//-----------------------------------------------------------------------
+namespace MtgJsonParser
 {
     using System;
     using System.Collections.Generic;
@@ -12,51 +28,66 @@
     using System.Diagnostics;
 
     /// <summary>
-    /// 
+    /// The main parsing system
     /// </summary>
     public class Parser
     {
         /// <summary>
-        /// 
+        /// A mapping of unique setcodes to the set information.
         /// </summary>
         private Dictionary<string, Set> setDictionary;
 
+        /// <summary>
+        /// A mapping of unique card names to the card information.
+        /// </summary>
+        private Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
 
-        Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
-        Dictionary<string, int> blockMap;
-
-        const string InputDictionaryFile = @"C:\Users\Liam\Common\dictionary.txt";
-        const string OutputDictionaryFile = @"C:\Users\Liam\AppData\Roaming\Microsoft\UProof\MTG.DIC";
+        /// <summary>
+        /// A mapping of unqiue block names to their ID (unique ascending)
+        /// </summary>
+        private Dictionary<string, int> blockMap;
 
         /// <summary>
         /// The list of sets that do not need to be included in the final data set
         /// </summary>
-        public List<string> setsToSkip;
+        private List<string> setsToSkip;
 
+        /// <summary>
+        /// User defined blocks in addition to those provided in the JSON data
+        /// </summary>
         private Dictionary<string, List<string>> additionalBlocks;
 
+        private Encoding defaultFileEncoding = new UTF8Encoding(false);
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Parser"/> class.
+        /// </summary>
+        /// <param name="downloadFile">Whether to download a new copy of the JSON data or not</param>
+        /// <param name="refreshFromOldData">Whether the refresh the usercards data from the old database or not.</param>
         public Parser(bool downloadFile, bool refreshFromOldData)
         {
             this.LoadSetsToSkip();
 
-            if (downloadFile)
+            // Download the file data if prompted to, or if the file doesn't already exist
+            if (downloadFile || !File.Exists(Path.Combine(Settings.Default.JsonDirectory, Settings.Default.JsonFilename)))
             {
                 Console.WriteLine("Downloading data file.");
                 using (WebClient wc = new WebClient())
                 {
                     wc.DownloadFile(Settings.Default.JsonUrl, Settings.Default.JsonZipFilename);
                 }
-                Console.WriteLine("Unzipping data file.");
+
                 Directory.Delete(Settings.Default.JsonDirectory, true);
+
+                Console.WriteLine("Unzipping data file.");
                 System.IO.Compression.ZipFile.ExtractToDirectory(Settings.Default.JsonZipFilename, Settings.Default.JsonDirectory);
             }
 
-            this.ReadSetData();
+            this.ReadJosnData();
             this.LoadAdditionalBlocks();
             this.SetOracleIDs();
             Directory.CreateDirectory("temp");
             Directory.CreateDirectory("backup");
-
 
             MySqlConnection con = new MySqlConnection();
             con.ConnectionString = "server=" + Settings.Default.MySqlServer
@@ -165,7 +196,7 @@
         private void WriteDictionaryFile()
         {
             HashSet<string> realWordSet = new HashSet<string>();
-            using (StreamReader dictionaryReader = new StreamReader(InputDictionaryFile))
+            using (StreamReader dictionaryReader = new StreamReader(Settings.Default.InputDictionaryFilename))
             {
                 string line;
                 while ((line = dictionaryReader.ReadLine()) != null)
@@ -200,7 +231,7 @@
                 }
             }
 
-            using (StreamWriter dictionaryOut = new StreamWriter(OutputDictionaryFile, false, Encoding.Unicode))
+            using (StreamWriter dictionaryOut = new StreamWriter(Settings.Default.OutputDictionaryFilename, false, Encoding.Unicode))
             {
                 foreach (string name in names)
                 {
@@ -293,8 +324,7 @@
             }
 
             Console.WriteLine("Writing types table file.");
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/types", false, utf8WithoutBOM);
+            StreamWriter sw = new StreamWriter("temp/types", false, defaultFileEncoding);
 
             foreach (string type in typeSet)
             {
@@ -326,8 +356,7 @@
             }
 
             Console.WriteLine("Writing subtypes table file.");
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/subtypes", false, utf8WithoutBOM);
+            StreamWriter sw = new StreamWriter("temp/subtypes", false, defaultFileEncoding);
 
             foreach (string subtype in subtypeSet)
             {
@@ -411,6 +440,9 @@
             backupDir.Delete(true);
         }
 
+        /// <summary>
+        /// Downloads the images for every card that does not already have one.
+        /// </summary>
         private void DownloadCardImages()
         {
             Console.WriteLine("Downloading card images.");
@@ -437,67 +469,70 @@
                     }
                     catch (WebException e)
                     {
-                        Console.WriteLine("Failed to download " + url + " " + e);
+                        Console.WriteLine($"Failed to download {url} {e}");
                     }
                 }
             }
+
+            Console.WriteLine("Finished downloading card images.");
         }
 
+        /// <summary>
+        /// Sets the a unique Oracle IDs for each card. Cards that are reprinted are given the same Oracle ID for each printing
+        /// </summary>
         private void SetOracleIDs()
         {
-            Console.WriteLine("Setting oracle IDs");
+            Console.Write("Setting oracle IDs... ");
 
             int oracleID = 0;
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            foreach (KeyValuePair<string, Set> pair in setDictionary.Where(x => !setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
 
                 foreach (Card card in set.Cards)
                 {
                     card.ParentSet = pair.Value;
-                    if (!uniqueCards.ContainsKey(card.Name))
+                    Card existingCard;
+                    if (!uniqueCards.TryGetValue(card.Name, out existingCard))
                     {
                         card.OracleID = ++oracleID;
                         uniqueCards.Add(card.Name, card);
                     }
                     else
                     {
-                        card.OracleID = uniqueCards[card.Name].OracleID;
+                        card.OracleID = existingCard.OracleID;
                     }
                 }
             }
+
+            Console.WriteLine("Done");
         }
 
         /// <summary>
-        /// 
+        /// Reads the JSON data and stores it in the set dictionary
         /// </summary>
-        private void ReadSetData()
+        private void ReadJosnData()
         {
-            Console.WriteLine("Reading set data.");
+            Console.Write("Reading set data...");
             string data = File.ReadAllText(Path.Combine(Settings.Default.JsonDirectory, Settings.Default.JsonFilename));
+            Console.WriteLine("Done");
 
-            Console.WriteLine("Deserialising set data");
+            Console.Write("Deserialising set data... ");
             this.setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
+            Console.WriteLine("Done");
         }
 
+        /// <summary>
+        /// Writes all card links out to a tab seperated file
+        /// </summary>
         private void WriteCardLinksTable()
         {
-            Console.WriteLine("Writing cards table file.");
+            Console.Write("Writing cards table file...");
 
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/links", false, utf8WithoutBOM);
-            foreach (KeyValuePair<string, Card> pair in this.uniqueCards)
+            StreamWriter sw = new StreamWriter("temp/links", false, defaultFileEncoding);
+            foreach (KeyValuePair<string, Card> pair in this.uniqueCards.Where(x => x.Value.Names != null))
             {
                 Card card = pair.Value;
-
-                if (card.Names == null)
-                {
-                    continue;
-                }
 
                 foreach (string linkName in card.Names.FindAll(x => x != card.Name))
                 {
@@ -507,14 +542,17 @@
             }
 
             sw.Close();
+            Console.WriteLine("Done");
         }
 
-        public void WriteCardsTable()
+        /// <summary>
+        /// WRites all oracle card information to a tab seperated file.
+        /// </summary>
+        private void WriteCardsTable()
         {
-            Console.WriteLine("Writing cards table file.");
+            Console.Write("Writing cards table file... ");
 
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/cards", false, utf8WithoutBOM);
+            StreamWriter sw = new StreamWriter("temp/cards", false, defaultFileEncoding);
             foreach (KeyValuePair<string, Card> pair in this.uniqueCards)
             {
                 Card card = pair.Value;
@@ -522,13 +560,16 @@
             }
 
             sw.Close();
+            Console.Write("Done");
         }
 
-        public void WriteCardSetsTable()
+        /// <summary>
+        /// 
+        /// </summary>
+        private void WriteCardSetsTable()
         {
-            Console.WriteLine("Writing cardsets table file.");
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/cardsets", false, utf8WithoutBOM);
+            Console.Write("Writing cardsets table file... ");
+            StreamWriter sw = new StreamWriter("temp/cardsets", false, defaultFileEncoding);
 
             foreach (KeyValuePair<string, Set> pair in this.setDictionary)
             {
@@ -542,7 +583,10 @@
                 foreach (Card card in set.Cards)
                 {
                     StringBuilder str = new StringBuilder();
+
+                    // Set the id column to NULL so it is auto-incremented
                     str.Append("\\N\t");
+
                     str.Append(card.OracleID);
                     str.Append('\t');
 
@@ -555,7 +599,7 @@
                     str.Append(card.Artist);
                     str.Append('\t');
 
-                    str.Append(Nvl(card.Flavortext?.Replace("\n", "~")));
+                    str.Append(card.Flavortext?.Replace("\n", "~") ?? "\\N");
                     str.Append('\t');
 
                     Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
@@ -572,16 +616,18 @@
             Console.WriteLine("Done");
         }
 
+        /// <summary>
+        /// Writes the list of blocks out to a tab seperated file.
+        /// </summary>
         private void WriteBlocksToFile()
         {
-            Console.WriteLine("Writing cardsets table file.");
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/blocks", false, utf8WithoutBOM);
+            Console.Write("Writing cardsets table file... ");
+            StreamWriter sw = new StreamWriter("temp/blocks", false, defaultFileEncoding);
 
-            int id = 1;
+            int blockid = 1;
             this.blockMap = new Dictionary<string, int>();
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => x.Value.Block != null))
             {
                 Set set = pair.Value;
 
@@ -590,22 +636,25 @@
                     continue;
                 }
 
-                blockMap.Add(set.Block, id);
-                ++id;
+                blockMap.Add(set.Block, blockid);
+                ++blockid;
             }
 
+            // Add the user defined blocks as well
             foreach (KeyValuePair<string, List<string>> pair in this.additionalBlocks)
             {
-                blockMap.Add(pair.Key, id);
-                ++id;
+                blockMap.Add(pair.Key, blockid);
+                ++blockid;
             }
 
+            // Write to file
             foreach (KeyValuePair<string, int> pair in this.blockMap)
             {
                 sw.WriteLine($"{pair.Value}\t{pair.Key}");
             }
 
             sw.Close();
+            Console.WriteLine("Done");
         }
 
         /// <summary>
@@ -613,21 +662,15 @@
         /// </summary>
         private void WriteSetsToFile()
         {
-            Console.WriteLine("Writing cardsets table file.");
-            Encoding utf8WithoutBOM = new UTF8Encoding(false);
-            StreamWriter sw = new StreamWriter("temp/sets", false, utf8WithoutBOM);
+            Console.Write("Writing cardsets table file... ");
+            StreamWriter sw = new StreamWriter("temp/sets", false, defaultFileEncoding);
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
-
                 StringBuilder str = new StringBuilder();
 
+                // Use NULL as the ID column so it can be auto-incremented
                 str.Append("\\N\t");
 
                 str.Append(set.Code);
@@ -638,17 +681,14 @@
 
                 if (string.IsNullOrWhiteSpace(set.Block))
                 {
-                    bool inAdditionalBlock = false;
-                    foreach (KeyValuePair<string, List<string>> blockPair in this.additionalBlocks)
-                    {
-                        if (blockPair.Value.Contains(set.Code))
-                        {
-                            str.Append(blockMap[blockPair.Key]);
-                            inAdditionalBlock = true;
-                        }
-                    }
+                    // If the set doesn't have a block, try and find it in the additional block list
+                    var additionalBlockPair = this.additionalBlocks.FirstOrDefault(x => x.Value.Contains(set.Code));
 
-                    if (!inAdditionalBlock)
+                    if (additionalBlockPair.Key != null)
+                    {
+                        str.Append(additionalBlockPair.Key);
+                    }
+                    else
                     {
                         str.Append("\\N");
                     }
@@ -664,11 +704,6 @@
                 sw.WriteLine(str.ToString());
             }
             sw.Close();
-        }
-
-        public string Nvl(string str)
-        {
-            return str ?? "\\N";
         }
     }
 
