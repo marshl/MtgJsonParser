@@ -83,7 +83,7 @@ namespace MtgJsonParser
                 System.IO.Compression.ZipFile.ExtractToDirectory(Settings.Default.JsonZipFilename, Settings.Default.JsonDirectory);
             }
 
-            this.ReadJosnData();
+            this.ReadJsonData();
             this.LoadAdditionalBlocks();
             this.SetOracleIDs();
             Directory.CreateDirectory("temp");
@@ -511,7 +511,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Reads the JSON data and stores it in the set dictionary
         /// </summary>
-        private void ReadJosnData()
+        private void ReadJsonData()
         {
             Console.Write("Reading set data...");
             string data = File.ReadAllText(Path.Combine(Settings.Default.JsonDirectory, Settings.Default.JsonFilename));
