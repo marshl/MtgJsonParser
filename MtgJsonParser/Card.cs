@@ -16,12 +16,10 @@
 //-----------------------------------------------------------------------
 namespace MtgJsonParser
 {
-    using System;
     using System.Collections.Generic;
-    using System.Text;
+    using System.Linq;
     using System.Text.RegularExpressions;
     using Newtonsoft.Json;
-    using System.Linq;
 
     /// <summary>
     /// A card belonging to a single set.
@@ -314,28 +312,6 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// Parses the given string and returns the numeric component of it
-        /// </summary>
-        /// <param name="input">The string to parse.</param>
-        /// <returns>The numeric component of the string if applicable, otherwise 0.</returns>
-        public static float ParseStringAsFloat(string input)
-        {
-            if (input == null)
-            {
-                return 0;
-            }
-
-            Regex numRegex = new Regex(@"(-?(?:\d+)?(?:\.\d+)?)");
-            Match match = numRegex.Match(input);
-            if (!match.Success || string.IsNullOrEmpty(match.Groups[1].Value))
-            {
-                return 0;
-            }
-
-            return float.Parse(match.Groups[1].Value);
-        }
-
-        /// <summary>
         /// Gets the type of card link for the card, if applicable.
         /// </summary>
         public string LinkType
@@ -362,46 +338,25 @@ namespace MtgJsonParser
         }
 
         /// <summary>
-        /// Gets all the items in the card that will be loaded into the database.
+        /// Parses the given string and returns the numeric component of it
         /// </summary>
-        /// <returns>A string for each column in the card table.</returns>
-        public List<string> GetOracleChunks()
+        /// <param name="input">The string to parse.</param>
+        /// <returns>The numeric component of the string if applicable, otherwise 0.</returns>
+        public static float ParseStringAsFloat(string input)
         {
-            string allSuperTypes = this.Supertypes != null ? string.Join(" ", this.Supertypes) : null;
-            string allTypes = this.Types != null ? string.Join(" ", this.Types) : null;
-            string allSubTypes = this.SubTypes != null ? string.Join(" ", this.SubTypes) : null;
+            if (input == null)
+            {
+                return 0;
+            }
 
-            List<string> output = new List<string>();
-            output.Add(this.OracleID.ToString());
-            output.Add(this.Name);
-            output.Add(this.ManaCost);
-            output.Add(this.CMC.ToString());
-            output.Add(this.ColorFlags.ToString());
-            output.Add(this.ColorIdentityFlags.ToString());
-            output.Add(this.Colors != null ? this.Colors.Count.ToString() : "0");
-            output.Add(string.Join(" ", allSuperTypes, allTypes));
-            output.Add(allSubTypes);
-            output.Add(this.Power);
-            output.Add(this.NumPower.ToString());
-            output.Add(this.Toughness);
-            output.Add(this.NumToughness.ToString());
-            output.Add(this.Loyalty);
-            output.Add(this.Text != null ? this.Text.Replace('\n', '~') : null);
+            Regex numRegex = new Regex(@"(-?(?:\d+)?(?:\.\d+)?)");
+            Match match = numRegex.Match(input);
+            if (!match.Success || string.IsNullOrEmpty(match.Groups[1].Value))
+            {
+                return 0;
+            }
 
-            return output;
-        }
-
-        /// <summary>
-        /// Creates a string to the loaded by the database containing all information for the card.
-        /// </summary>
-        /// <returns>The tab separated data columns of this card. </returns>
-        public string GetOracleLine()
-        {
-            List<string> oracleChunks = this.GetOracleChunks();
-
-            // Replace any null values with the SQL NULL character
-            oracleChunks = oracleChunks.Select(x => x ?? "\\N").ToList();
-            return string.Join("\t", oracleChunks);
+            return float.Parse(match.Groups[1].Value);
         }
     }
 }

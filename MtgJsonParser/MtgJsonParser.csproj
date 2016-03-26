@@ -59,6 +59,11 @@
   <ItemGroup>
     <Compile Include="Card.cs" />
     <Compile Include="Colour.cs" />
+    <Compile Include="ColourExtensions.cs" />
+    <Compile Include="ColourFlag.cs" />
+    <Compile Include="ColourName.cs" />
+    <Compile Include="ColourSymbol.cs" />
+    <Compile Include="DataSerialiser.cs" />
     <Compile Include="EnumExtensions.cs" />
     <Compile Include="ForeignName.cs" />
     <Compile Include="FormatLegality.cs" />
@@ -73,6 +78,8 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Rarity.cs" />
+    <Compile Include="RarityName.cs" />
+    <Compile Include="RaritySymbol.cs" />
     <Compile Include="Ruling.cs" />
     <Compile Include="Set.cs" />
   </ItemGroup>

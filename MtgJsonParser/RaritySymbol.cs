@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="Ruling.cs" company="marshl">
+// <copyright file="RaritySymbol.cs" company="marshl">
 // Copyright 2016, Liam Marshall, marshl.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,23 +16,25 @@
 //-----------------------------------------------------------------------
 namespace MtgJsonParser
 {
-    using Newtonsoft.Json;
+    using System;
 
     /// <summary>
-    /// The rulings for the card. An array of objects, each object having 'date' and 'text' keys.
+    /// The symbol of a rarity
     /// </summary>
-    public class Ruling
+    public class RaritySymbol : Attribute
     {
         /// <summary>
-        /// Gets or sets the date this ruling was made
+        /// Initializes a new instance of the <see cref="RaritySymbol"/> class.
         /// </summary>
-        [JsonProperty("date")]
-        public string Date { get; set; }
+        /// <param name="value">The symbol to use.</param>
+        public RaritySymbol(char value)
+        {
+            this.Value = value;
+        }
 
         /// <summary>
-        /// Gets or sets the text of this ruling
+        /// Gets or sets rarity symbol.
         /// </summary>
-        [JsonProperty("text")]
-        public string Text { get; set; }
+        public char Value { get; set; }
     }
 }

@@ -18,14 +18,14 @@ namespace MtgJsonParser
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Net;
     using System.Text;
-    using Properties;
-    using Newtonsoft.Json;
     using MySql.Data.MySqlClient;
-    using System.Diagnostics;
+    using Newtonsoft.Json;
+    using Properties;
 
     /// <summary>
     /// The main parsing system
@@ -40,7 +40,7 @@ namespace MtgJsonParser
         /// <summary>
         /// A mapping of unique card names to the card information.
         /// </summary>
-        private Dictionary<string, Card> uniqueCards = new Dictionary<string, Card>();
+        private Dictionary<string, Card> uniqueCards;
 
         /// <summary>
         /// A mapping of unqiue block names to their ID (unique ascending)
@@ -57,6 +57,9 @@ namespace MtgJsonParser
         /// </summary>
         private Dictionary<string, List<string>> additionalBlocks;
 
+        /// <summary>
+        /// The file encoding to use for outputting the tab separated files.
+        /// </summary>
         private Encoding defaultFileEncoding = new UTF8Encoding(false);
 
         /// <summary>
@@ -66,7 +69,7 @@ namespace MtgJsonParser
         /// <param name="refreshFromOldData">Whether the refresh the usercards data from the old database or not.</param>
         public Parser(bool downloadFile, bool refreshFromOldData)
         {
-            this.LoadSetsToSkip();
+            this.setsToSkip = this.LoadSetsToSkip();
 
             // Download the file data if prompted to, or if the file doesn't already exist
             if (downloadFile || !File.Exists(Path.Combine(Settings.Default.JsonDirectory, Settings.Default.JsonFilename)))
@@ -83,11 +86,16 @@ namespace MtgJsonParser
                 System.IO.Compression.ZipFile.ExtractToDirectory(Settings.Default.JsonZipFilename, Settings.Default.JsonDirectory);
             }
 
-            this.ReadJsonData();
-            this.LoadAdditionalBlocks();
+            this.setDictionary = this.ReadJsonData();
+            this.additionalBlocks = this.LoadAdditionalBlocks();
             this.SetOracleIDs();
             Directory.CreateDirectory("temp");
             Directory.CreateDirectory("backup");
+
+            this.CreateLoaderFiles();
+            this.DownloadCardImages();
+            this.DownloadSetSymbols();
+            this.CreateBackups();
 
             MySqlConnection con = new MySqlConnection();
             con.ConnectionString = "server=" + Settings.Default.MySqlServer
@@ -98,59 +106,14 @@ namespace MtgJsonParser
 
             con.Open();
 
-            this.WriteCardsTable();
-            this.WriteCardSetsTable();
-            this.WriteBlocksToFile();
-            this.WriteSetsToFile();
-            this.WriteSubtypesToFile();
-            this.WriteTypesToFile();
-            this.WriteCardLinksTable();
-            this.WriteDictionaryFile();
-
-            this.DownloadCardImages();
-            this.CreateBackups();
-            this.DownloadSetSymbols();
-
             MySqlCommand command = con.CreateCommand();
 
             command.CommandText = "TRUNCATE historicalcards";
             command.ExecuteNonQuery();
 
-
             if (refreshFromOldData)
             {
-                Console.WriteLine("Refreshing data set from magic_db database.");
-
-                command.CommandText = @"
-                INSERT INTO historicalcards
-                (SELECT cardid id, name FROM magic_db.oracle)";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "TRUNCATE usercards";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "INSERT INTO usercards ( SELECT * FROM magic_db.usercards)";
-                command.ExecuteNonQuery();
-
-
-                command.CommandText = "TRUNCATE usercardchanges";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "INSERT INTO usercardchanges ( SELECT * FROM magic_db.usercardlog)";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "TRUNCATE taglinks";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "INSERT INTO taglinks ( SELECT * FROM magic_db.taglinks)";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "TRUNCATE deckcards";
-                command.ExecuteNonQuery();
-
-                command.CommandText = "INSERT INTO deckcards ( SELECT * FROM magic_db.deckcards)";
-                command.ExecuteNonQuery();
-
+                this.RefreshDatabaseFromOldData(command);
             }
             else
             {
@@ -189,12 +152,70 @@ namespace MtgJsonParser
             this.UpdateTableWithNewCardIDs("deckcards", command);
 
             command.Dispose();
-
             con.Close();
         }
 
+        /// <summary>
+        /// Creates the tab separated table files to be loaded into the database.
+        /// </summary>
+        private void CreateLoaderFiles()
+        {
+            this.WriteCardsTable();
+            this.WriteCardSetsFile();
+            this.WriteBlocksToFile();
+            this.WriteSetsToFile();
+            this.WriteSubtypesToFile();
+            this.WriteTypesToFile();
+            this.WriteCardLinksTable();
+            this.WriteDictionaryFile();
+        }
+
+        /// <summary>
+        /// Truncates existing user tables, and loads data from the old database.
+        /// </summary>
+        /// <param name="command">The sql command to use.</param>
+        private void RefreshDatabaseFromOldData(MySqlCommand command)
+        {
+            Console.Write("Refreshing data set from magic_db database.");
+
+            command.CommandText = @"
+                INSERT INTO historicalcards
+                (SELECT cardid id, name FROM magic_db.oracle)";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "TRUNCATE usercards";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "INSERT INTO usercards ( SELECT * FROM magic_db.usercards)";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "TRUNCATE usercardchanges";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "INSERT INTO usercardchanges ( SELECT * FROM magic_db.usercardlog)";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "TRUNCATE taglinks";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "INSERT INTO taglinks ( SELECT * FROM magic_db.taglinks)";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "TRUNCATE deckcards";
+            command.ExecuteNonQuery();
+
+            command.CommandText = "INSERT INTO deckcards ( SELECT * FROM magic_db.deckcards)";
+            command.ExecuteNonQuery();
+
+            Console.WriteLine("Done");
+        }
+
+        /// <summary>
+        /// Writes out the Microsoft Office dictionary file, containing all words unique to magic.
+        /// </summary>
         private void WriteDictionaryFile()
         {
+            Console.Write("Loading dictionary file... ");
             HashSet<string> realWordSet = new HashSet<string>();
             using (StreamReader dictionaryReader = new StreamReader(Settings.Default.InputDictionaryFilename))
             {
@@ -204,25 +225,21 @@ namespace MtgJsonParser
                     realWordSet.Add(line.ToLower());
                 }
             }
+
             Console.WriteLine("Done");
 
             Console.Write("Finding unique names... ");
             HashSet<string> names = new HashSet<string>();
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
 
                 foreach (Card card in set.Cards)
                 {
                     string[] chunks = card.Name.Split(' ');
                     foreach (string chunk in chunks)
                     {
-                        string newChunk = chunk.Replace(",", "").Replace(":", "");
+                        string newChunk = chunk.Replace(",", string.Empty).Replace(":", string.Empty);
                         if (!realWordSet.Contains(newChunk.ToLower()))
                         {
                             names.Add(newChunk);
@@ -231,44 +248,54 @@ namespace MtgJsonParser
                 }
             }
 
+            Console.WriteLine("Done");
+
+            Console.Write("Writing dictionary to file... ");
             using (StreamWriter dictionaryOut = new StreamWriter(Settings.Default.OutputDictionaryFilename, false, Encoding.Unicode))
             {
-                foreach (string name in names)
-                {
-                    dictionaryOut.WriteLine(name);
-                }
+                names.ToList().ForEach(x => dictionaryOut.WriteLine(x));
             }
+
+            Console.WriteLine("Done");
         }
 
         /// <summary>
-        /// Loads the file that contains the list of sets to skip and stores it in a list.
+        /// Loads the file that contains the list of sets to skip and stores it in a list. wasdfoobar
         /// </summary>
-        private void LoadSetsToSkip()
+        /// <returns>The list of sets to skip.</returns>
+        private List<string> LoadSetsToSkip()
         {
-            this.setsToSkip = new List<string>();
+            var setsToSkip = new List<string>();
             StreamReader reader = new StreamReader("data/sets_to_skip.txt");
             string line;
             while ((line = reader.ReadLine()) != null)
             {
                 string setcode = line.Split('#')[0].Trim();
-                this.setsToSkip.Add(setcode);
+                setsToSkip.Add(setcode);
             }
+
+            return setsToSkip;
         }
 
-        private void LoadAdditionalBlocks()
+        /// <summary>
+        /// Parses the additional block file, and stores it in a 
+        /// </summary>
+        /// <returns>The list of additional blocks to skip.</returns>
+        private Dictionary<string, List<string>> LoadAdditionalBlocks()
         {
-            this.additionalBlocks = new Dictionary<string, List<string>>();
+            var additionalBlocks = new Dictionary<string, List<string>>();
             StreamReader reader = new StreamReader("data/additional_blocks.txt");
             string line;
             while ((line = reader.ReadLine()) != null)
             {
                 string[] strs = line.Split('\t');
-                Debug.Assert(strs.Length > 1);
                 string blockname = strs[0].Trim();
                 List<string> sets = strs[1].Split(' ').ToList();
                 sets.ForEach(x => x = x.Trim());
                 additionalBlocks.Add(blockname, sets);
             }
+
+            return additionalBlocks;
         }
 
         /// <summary>
@@ -306,17 +333,15 @@ namespace MtgJsonParser
         private void WriteTypesToFile()
         {
             HashSet<string> typeSet = new HashSet<string>();
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+
+            // Ignore Unglued and Unhinged (they have some weird types)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(
+                x => !this.setsToSkip.Contains(x.Value.Code)
+             && x.Value.Code != "UGL" && x.Value.Code != "UNH"))
             {
                 Set set = pair.Value;
 
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
-
-                // Ignore Big Furry monster, as it has some weird types
-                foreach (Card card in set.Cards.FindAll(x => x.Name != "B.F.M. (Big Furry Monster)"))
+                foreach (Card card in set.Cards)
                 {
                     card.Types?.ForEach(x => typeSet.Add(x));
                     card.Supertypes?.ForEach(x => typeSet.Add(x));
@@ -324,7 +349,7 @@ namespace MtgJsonParser
             }
 
             Console.WriteLine("Writing types table file.");
-            StreamWriter sw = new StreamWriter("temp/types", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/types", false, this.defaultFileEncoding);
 
             foreach (string type in typeSet)
             {
@@ -340,14 +365,9 @@ namespace MtgJsonParser
         private void WriteSubtypesToFile()
         {
             HashSet<string> subtypeSet = new HashSet<string>();
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
 
                 foreach (Card card in set.Cards)
                 {
@@ -356,7 +376,7 @@ namespace MtgJsonParser
             }
 
             Console.WriteLine("Writing subtypes table file.");
-            StreamWriter sw = new StreamWriter("temp/subtypes", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/subtypes", false, this.defaultFileEncoding);
 
             foreach (string subtype in subtypeSet)
             {
@@ -376,14 +396,9 @@ namespace MtgJsonParser
             WebClient wc = new WebClient();
             DirectoryInfo imageDir = new DirectoryInfo(@"C:\wamp\www\delverdb\images\exp");
 
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-
-                if (setsToSkip.Contains(set.Code))
-                {
-                    continue;
-                }
 
                 List<char> rarities = new List<char>();
 
@@ -416,9 +431,11 @@ namespace MtgJsonParser
                     }
                 }
             }
-
         }
 
+        /// <summary>
+        /// Creates backup files for both the new and old databases
+        /// </summary>
         private void CreateBackups()
         {
             Console.WriteLine("Creating backup files.");
@@ -427,12 +444,10 @@ namespace MtgJsonParser
 
             string oldbackup = $"{backupDir.FullName}\\magic_db.sql";
             Process p = Process.Start("CMD.exe", $"/C mysqldump -u root magic_db > \"{oldbackup}\"");
-
             p.WaitForExit();
 
             string newbackup = $"{backupDir.FullName}\\delverdb.sql";
             p = Process.Start("CMD.exe", $"/C mysqldump -u root delverdb > \"{newbackup}\"");
-
             p.WaitForExit();
 
             System.IO.Compression.ZipFile.CreateFromDirectory(backupDir.FullName, $"backup\\{backupDir.Name}.zip");
@@ -450,7 +465,7 @@ namespace MtgJsonParser
             WebClient wc = new WebClient();
             DirectoryInfo imageDir = new DirectoryInfo(@"C:\wamp\www\delverdb\images\cards");
 
-            foreach (KeyValuePair<string, Set> pair in setDictionary)
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 foreach (Card card in pair.Value.Cards.FindAll(x => x.MultiverseID != null))
                 {
@@ -484,18 +499,19 @@ namespace MtgJsonParser
         {
             Console.Write("Setting oracle IDs... ");
 
+            this.uniqueCards = new Dictionary<string, Card>();
             int oracleID = 0;
-            foreach (KeyValuePair<string, Set> pair in setDictionary.Where(x => !setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
 
                 foreach (Card card in set.Cards)
                 {
                     Card existingCard;
-                    if (!uniqueCards.TryGetValue(card.Name, out existingCard))
+                    if (!this.uniqueCards.TryGetValue(card.Name, out existingCard))
                     {
                         card.OracleID = ++oracleID;
-                        uniqueCards.Add(card.Name, card);
+                        this.uniqueCards.Add(card.Name, card);
                     }
                     else
                     {
@@ -510,15 +526,17 @@ namespace MtgJsonParser
         /// <summary>
         /// Reads the JSON data and stores it in the set dictionary
         /// </summary>
-        private void ReadJsonData()
+        /// <returns>The set dictionary.</returns>
+        private Dictionary<string, Set> ReadJsonData()
         {
             Console.Write("Reading set data...");
             string data = File.ReadAllText(Path.Combine(Settings.Default.JsonDirectory, Settings.Default.JsonFilename));
             Console.WriteLine("Done");
 
             Console.Write("Deserialising set data... ");
-            this.setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
+            var setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
             Console.WriteLine("Done");
+            return setDictionary;
         }
 
         /// <summary>
@@ -528,7 +546,7 @@ namespace MtgJsonParser
         {
             Console.Write("Writing cards table file...");
 
-            StreamWriter sw = new StreamWriter("temp/links", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/links", false, this.defaultFileEncoding);
             foreach (KeyValuePair<string, Card> pair in this.uniqueCards.Where(x => x.Value.Names != null))
             {
                 Card card = pair.Value;
@@ -551,11 +569,11 @@ namespace MtgJsonParser
         {
             Console.Write("Writing cards table file... ");
 
-            StreamWriter sw = new StreamWriter("temp/cards", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/cards", false, this.defaultFileEncoding);
             foreach (KeyValuePair<string, Card> pair in this.uniqueCards)
             {
                 Card card = pair.Value;
-                sw.WriteLine(card.GetOracleLine());
+                sw.WriteLine(DataSerialiser.SerialiseCard(card));
             }
 
             sw.Close();
@@ -565,44 +583,18 @@ namespace MtgJsonParser
         /// <summary>
         /// Writes the card set information to a tab separated file.
         /// </summary>
-        private void WriteCardSetsTable()
+        private void WriteCardSetsFile()
         {
             Console.Write("Writing cardsets table file... ");
-            StreamWriter sw = new StreamWriter("temp/cardsets", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/cardsets", false, this.defaultFileEncoding);
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-                
+
                 foreach (Card card in set.Cards)
                 {
-                    StringBuilder bldr = new StringBuilder();
-
-                    // Set the id column to NULL so it is auto-incremented
-                    bldr.Append("\\N\t");
-
-                    bldr.Append(card.OracleID);
-                    bldr.Append('\t');
-
-                    bldr.Append(set.Code);
-                    bldr.Append('\t');
-
-                    bldr.Append(card.MultiverseID);
-                    bldr.Append('\t');
-
-                    bldr.Append(card.Artist);
-                    bldr.Append('\t');
-
-                    bldr.Append(card.Flavortext?.Replace("\n", "~") ?? "\\N");
-                    bldr.Append('\t');
-
-                    Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
-                    bldr.Append(rarity.GetSymbol());
-                    bldr.Append('\t');
-
-                    bldr.Append(card.Number);
-
-                    sw.WriteLine(bldr.ToString());
+                    sw.WriteLine(DataSerialiser.SerialiseCardSet(card, set));
                 }
             }
 
@@ -616,29 +608,29 @@ namespace MtgJsonParser
         private void WriteBlocksToFile()
         {
             Console.Write("Writing cardsets table file... ");
-            StreamWriter sw = new StreamWriter("temp/blocks", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/blocks", false, this.defaultFileEncoding);
 
-            int blockid = 1;
+            int blockId = 1;
             this.blockMap = new Dictionary<string, int>();
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => x.Value.Block != null))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
 
-                if (set.Block == null || blockMap.ContainsKey(set.Block))
+                if (set.Block == null || this.blockMap.ContainsKey(set.Block))
                 {
                     continue;
                 }
 
-                blockMap.Add(set.Block, blockid);
-                ++blockid;
+                this.blockMap.Add(set.Block, blockId);
+                ++blockId;
             }
 
             // Add the user defined blocks as well
             foreach (KeyValuePair<string, List<string>> pair in this.additionalBlocks)
             {
-                blockMap.Add(pair.Key, blockid);
-                ++blockid;
+                this.blockMap.Add(pair.Key, blockId);
+                ++blockId;
             }
 
             // Write to file
@@ -657,9 +649,9 @@ namespace MtgJsonParser
         private void WriteSetsToFile()
         {
             Console.Write("Writing cardsets table file... ");
-            StreamWriter sw = new StreamWriter("temp/sets", false, defaultFileEncoding);
+            StreamWriter sw = new StreamWriter("temp/sets", false, this.defaultFileEncoding);
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
                 StringBuilder str = new StringBuilder();
@@ -689,7 +681,7 @@ namespace MtgJsonParser
                 }
                 else
                 {
-                    str.Append(blockMap[set.Block]);
+                    str.Append(this.blockMap[set.Block]);
                 }
 
                 str.Append('\t');
@@ -697,8 +689,8 @@ namespace MtgJsonParser
 
                 sw.WriteLine(str.ToString());
             }
+
             sw.Close();
         }
     }
-
 }

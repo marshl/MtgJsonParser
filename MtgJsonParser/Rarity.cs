@@ -23,66 +23,46 @@ namespace MtgJsonParser
     /// </summary>
     public enum Rarity
     {
+        /// <summary>
+        /// The land rarity
+        /// </summary>
         [RarityName("basic land")]
         [RaritySymbol('L')]
         Land,
 
+        /// <summary>
+        /// The common rarity
+        /// </summary>
         [RarityName("common")]
         [RaritySymbol('C')]
         Common,
 
+        /// <summary>
+        /// The uncommon rarity
+        /// </summary>
         [RarityName("uncommon")]
         [RaritySymbol('U')]
         Uncommon,
 
+        /// <summary>
+        /// The rare rarity
+        /// </summary>
         [RarityName("rare")]
         [RaritySymbol('R')]
         Rare,
 
+        /// <summary>
+        /// The mythic rare rarity
+        /// </summary>
         [RarityName("mythic rare")]
         [RaritySymbol('M')]
         MythicRare,
 
+        /// <summary>
+        /// The special rarity (such as timeshifted)
+        /// </summary>
         [RarityName("special")]
         [RaritySymbol('S')]
         Special,
-    }
-
-    public class RarityName : Attribute
-    {
-        public string Value { get; set; }
-
-        public RarityName(string value)
-        {
-            this.Value = value;
-        }
-    }
-
-    public class RaritySymbol : Attribute
-    {
-        public char Value { get; set; }
-
-        public RaritySymbol(char value)
-        {
-            this.Value = value;
-        }
-    }
-
-    public static class RarityExtensions
-    {
-        public static string GetName(this Rarity rarity)
-        {
-            return EnumExtensions.GetAttribute<RarityName>(rarity).Value;
-        }
-
-        public static char GetSymbol(this Rarity rarity)
-        {
-            return EnumExtensions.GetAttribute<RaritySymbol>(rarity).Value;
-        }
-
-        public static Rarity GetRarityWithName(string name)
-        {
-            return Array.Find((Rarity[])Enum.GetValues(typeof(Rarity)), x => x.GetName().Equals(name, StringComparison.OrdinalIgnoreCase));
-        }
     }
 }
