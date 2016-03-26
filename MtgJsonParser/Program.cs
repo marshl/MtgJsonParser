@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="Program.cs" company="marshl">
+// <copyright file="filename.cs" company="marshl">
 // Copyright 2016, Liam Marshall, marshl.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 
 namespace MtgJsonParser
 {
+    using System;
+    using System.Collections.Generic;
     using System.Linq;
+    using Mono.Options;
 
     /// <summary>
     /// The main program class
@@ -30,9 +33,51 @@ namespace MtgJsonParser
         /// <param name="args">The arguments to the program.</param>
         public static void Main(string[] args)
         {
-            bool downloadFile = args.Contains("--download") || args.Contains("-d");
+            bool showHelp = false;
+            bool forceDownload = false;
+            bool refreshDelverFromMagicDb = false;
 
-            Parser p = new Parser(false, false);
+            OptionSet optionSet = new OptionSet()
+            {
+                { "d|download",
+                    "Whether to download a new copy of the Json data or not\n",
+                  v => forceDownload = v != null},
+                 { "rd|refresh_delver",
+                    "Whether to refresh delverdb from magic_db or not\n",
+                  v => refreshDelverFromMagicDb = v != null },
+                { "h|help",  "show this message and exit",
+                  v => showHelp = v != null },
+            };
+
+            List<string> extraOptions;
+            try
+            {
+                extraOptions = optionSet.Parse(args);
+            }
+            catch (OptionException e)
+            {
+                Console.Write("MtgJsonParser: ");
+                Console.WriteLine(e.Message);
+                Console.WriteLine("Try `MtgJsonParser --help' for more information.");
+                return;
+            }
+
+            if (showHelp)
+            {
+                Console.WriteLine("Options:");
+                optionSet.WriteOptionDescriptions(Console.Out);
+                return;
+            }
+
+            string message;
+            if (extraOptions.Count > 0)
+            {
+                message = string.Join(" ", extraOptions.ToArray());
+                Console.WriteLine($"Unknown argument(s): {message}");
+                return;
+            }
+
+            Parser p = new Parser(downloadFile: forceDownload, refreshFromOldData: refreshDelverFromMagicDb);
         }
     }
 }
