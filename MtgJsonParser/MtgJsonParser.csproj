@@ -78,6 +78,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Rarity.cs" />
+    <Compile Include="RarityExtensions.cs" />
     <Compile Include="RarityName.cs" />
     <Compile Include="RaritySymbol.cs" />
     <Compile Include="Ruling.cs" />
