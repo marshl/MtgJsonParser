@@ -41,9 +41,9 @@ namespace MtgJsonParser
         /// <param name="card">The card to serialise.</param>
         /// <param name="set">The set the card is from.</param>
         /// <returns>The serialised card set information.</returns>
-        public static string SerialiseCardSet(Card card, Set set)
+        public static string SerialiseCardSet(Card card, Set set, bool includePrimaryKeyColumn)
         {
-            var parts = GetPartsForCardSet(card, set);
+            var parts = GetPartsForCardSet(card, set, includePrimaryKeyColumn);
             return JoinObjectParts(parts);
         }
 
@@ -84,17 +84,21 @@ namespace MtgJsonParser
         /// <param name="card">The card to parse.</param>
         /// <param name="set">The set the card is within.</param>
         /// <returns>The parts of the card.</returns>
-        private static List<string> GetPartsForCardSet(Card card, Set set)
+        private static List<string> GetPartsForCardSet(Card card, Set set, bool includePrimaryKeyColumn)
         {
             List<string> parts = new List<string>();
 
-            // Set the id column to NULL so it is auto-incremented
-            parts.Add(null);
+            if (includePrimaryKeyColumn)
+            {
+                // Set the id column to NULL so it is auto-incremented
+                parts.Add(null);
+            }
+
             parts.Add(card.OracleID.ToString());
             parts.Add(set.Code);
             parts.Add(card.MultiverseID);
             parts.Add(card.Artist);
-            parts.Add(card.Flavortext?.Replace("\n", "~") ?? "\\N");
+            parts.Add(card.Flavortext?.Replace("\n", "~"));
             Rarity rarity = RarityExtensions.GetRarityWithName(card.Rarity);
             parts.Add(rarity.GetSymbol().ToString());
             parts.Add(card.Number);
@@ -107,7 +111,7 @@ namespace MtgJsonParser
         /// </summary>
         /// <param name="parts">The parts to join.</param>
         /// <returns>The joined string.</returns>
-        private static string JoinObjectParts(List<string> parts)
+        public static string JoinObjectParts(List<string> parts)
         {
             // Replace any null values with the SQL NULL character
             var processedParts = parts.Select(x => x ?? "\\N").ToList();
