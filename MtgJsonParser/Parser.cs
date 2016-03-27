@@ -19,6 +19,7 @@ namespace MtgJsonParser
     using System;
     using System.Collections.Generic;
     using System.Configuration;
+    using System.Data.Common;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
@@ -26,9 +27,8 @@ namespace MtgJsonParser
     using System.Text;
     using MySql.Data.MySqlClient;
     using Newtonsoft.Json;
-    using Properties;
     using Npgsql;
-    using System.Data.Common;
+    using Properties;
 
     /// <summary>
     /// The main parsing system
@@ -70,6 +70,8 @@ namespace MtgJsonParser
         /// </summary>
         /// <param name="downloadFile">Whether to download a new copy of the JSON data or not</param>
         /// <param name="refreshFromOldData">Whether the refresh the usercards data from the old database or not.</param>
+        /// <param name="pushToDelverDb">Whether to push the data to the DelverDb database.</param>
+        /// <param name="pushToTutelage">Whether to push the data to the Tutelage database.</param>
         public Parser(bool downloadFile, bool refreshFromOldData, bool pushToDelverDb, bool pushToTutelage)
         {
             this.setsToSkip = this.LoadSetsToSkip();
@@ -96,7 +98,6 @@ namespace MtgJsonParser
             Directory.CreateDirectory("backup");
 
             this.CreateLoaderFiles(pushToDelverDb);
-
 
             MySqlConnection mysqlConnection = null;
             MySqlCommand mysqlCommand = null;
@@ -156,6 +157,11 @@ namespace MtgJsonParser
             this.WriteDictionaryFile();
         }
 
+        /// <summary>
+        /// Updates a database using the given command.
+        /// </summary>
+        /// <param name="command">The command to update the database (includes which database to update)</param>
+        /// <param name="refreshFromOldData">Whether to update the database with old data.</param>
         private void UpdateDatabaseWithCommand(DbCommand command, bool refreshFromOldData)
         {
             command.CommandText = "TRUNCATE historicalcards";
@@ -179,20 +185,20 @@ namespace MtgJsonParser
             command.ExecuteNonQuery();
 
             command.CommandText = @"
-                INSERT INTO oldtonewcards(
-                    SELECT hc.id, c.id
-                    FROM cards c
-                    JOIN historicalcards hc
-                    ON hc.name = c.name
-                )";
+            INSERT INTO oldtonewcards(
+                SELECT hc.id, c.id
+                FROM cards c
+                JOIN historicalcards hc
+                ON hc.name = c.name
+            )";
             command.ExecuteNonQuery();
 
             this.LoadLocalFileIntoTable("cardsets", "temp/cardsets", command, "cardid,setcode,multiverseid,artist,flavourtext,rarity,collectornum");
             this.LoadLocalFileIntoTable("blocks", "temp/blocks", command, "id,name");
             this.LoadLocalFileIntoTable("sets", "temp/sets", command, "id,code,name,blockid,release_date");
             this.LoadLocalFileIntoTable("types", "temp/types", command, "id,name");
-            this.LoadLocalFileIntoTable("subtypes", "temp/subtypes", command,"id,name");
-            this.LoadLocalFileIntoTable("cardlinks", "temp/links", command,"cardid_from,cardid_to,link_type");
+            this.LoadLocalFileIntoTable("subtypes", "temp/subtypes", command, "id,name");
+            this.LoadLocalFileIntoTable("cardlinks", "temp/links", command, "cardid_from,cardid_to,link_type");
 
             Console.WriteLine("Updating old card IDs with new values.");
 
@@ -205,10 +211,11 @@ namespace MtgJsonParser
         /// <summary>
         /// Creates the tab separated table files to be loaded into the database.
         /// </summary>
-        private void CreateLoaderFiles(bool includePrimaryKeyColumn)
+        /// <param name="includeIdColumn">Whether to include the Id column in the output.</param>
+        private void CreateLoaderFiles(bool includeIdColumn)
         {
             this.WriteCardsTable();
-            this.WriteCardSetsFile(includePrimaryKeyColumn);
+            this.WriteCardSetsFile(includeIdColumn);
             this.WriteBlocksToFile();
             this.WriteSetsToFile();
             this.WriteSubtypesToFile();
@@ -361,6 +368,7 @@ namespace MtgJsonParser
         /// <param name="tablename">The name of the table to load the data into.</param>
         /// <param name="filename">The name of the local file to load the data from.</param>
         /// <param name="command">The MySQL command to perform the update with.</param>
+        /// <param name="columns">The comma separated list of columns to load the data into.</param>
         private void LoadLocalFileIntoTable(string tablename, string filename, DbCommand command, string columns)
         {
             Console.WriteLine($"Truncating {tablename}");
@@ -646,7 +654,8 @@ namespace MtgJsonParser
         /// <summary>
         /// Writes the card set information to a tab separated file.
         /// </summary>
-        private void WriteCardSetsFile(bool includePrimaryKeyColumn)
+        /// <param name="includeIdColumn">Whether to include the ID column in the output data.</param>
+        private void WriteCardSetsFile(bool includeIdColumn)
         {
             Console.Write("Writing cardsets table file... ");
             StreamWriter sw = new StreamWriter("temp/cardsets", false, this.defaultFileEncoding);
@@ -657,7 +666,7 @@ namespace MtgJsonParser
 
                 foreach (Card card in set.Cards)
                 {
-                    sw.WriteLine(DataSerialiser.SerialiseCardSet(card, set, includePrimaryKeyColumn));
+                    sw.WriteLine(DataSerialiser.SerialiseCardSet(card, set, includeIdColumn));
                 }
             }
 
@@ -718,7 +727,7 @@ namespace MtgJsonParser
             foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
             {
                 Set set = pair.Value;
-               
+
                 List<string> parts = new List<string>();
                 parts.Add(setId.ToString());
                 ++setId;
@@ -738,9 +747,9 @@ namespace MtgJsonParser
                 {
                     parts.Add(this.blockMap[set.Block].ToString());
                 }
-                
+
                 parts.Add(set.ReleaseDate.ToString());
-                
+
                 sw.WriteLine(DataSerialiser.JoinObjectParts(parts));
             }
 

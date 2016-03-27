@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="filename.cs" company="marshl">
+// <copyright file="Program.cs" company="marshl">
 // Copyright 2016, Liam Marshall, marshl.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
 // limitations under the License.
 // </copyright>
 //-----------------------------------------------------------------------
-
 namespace MtgJsonParser
 {
     using System;
     using System.Collections.Generic;
-    using System.Linq;
     using Mono.Options;
 
     /// <summary>
@@ -43,7 +41,7 @@ namespace MtgJsonParser
             {
                 { "d|download",
                     "Whether to download a new copy of the Json data or not\n",
-                  v => forceDownload = v != null},
+                  v => forceDownload = v != null },
                  { "rd|refresh_delver",
                     "Whether to refresh delverdb from magic_db or not\n",
                   v => refreshDelverFromMagicDb = v != null },
@@ -85,7 +83,8 @@ namespace MtgJsonParser
                 return;
             }
 
-            Parser p = new Parser(downloadFile: forceDownload,
+            Parser p = new Parser(
+                downloadFile: forceDownload,
                 refreshFromOldData: refreshDelverFromMagicDb,
                 pushToDelverDb: pushToDelverDb,
                 pushToTutelage: pushToTutelage);

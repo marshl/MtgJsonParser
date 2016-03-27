@@ -40,11 +40,24 @@ namespace MtgJsonParser
         /// </summary>
         /// <param name="card">The card to serialise.</param>
         /// <param name="set">The set the card is from.</param>
+        /// <param name="includeIdColumn">Whether to include the id column in the output.</param>
         /// <returns>The serialised card set information.</returns>
-        public static string SerialiseCardSet(Card card, Set set, bool includePrimaryKeyColumn)
+        public static string SerialiseCardSet(Card card, Set set, bool includeIdColumn)
         {
-            var parts = GetPartsForCardSet(card, set, includePrimaryKeyColumn);
+            var parts = GetPartsForCardSet(card, set, includeIdColumn);
             return JoinObjectParts(parts);
+        }
+
+        /// <summary>
+        /// Joins the parts of an object to serialise, replacing any null values with SQL NULL
+        /// </summary>
+        /// <param name="parts">The parts to join.</param>
+        /// <returns>The joined string.</returns>
+        public static string JoinObjectParts(List<string> parts)
+        {
+            // Replace any null values with the SQL NULL character
+            var processedParts = parts.Select(x => x ?? "\\N").ToList();
+            return string.Join("\t", processedParts);
         }
 
         /// <summary>
@@ -83,12 +96,13 @@ namespace MtgJsonParser
         /// </summary>
         /// <param name="card">The card to parse.</param>
         /// <param name="set">The set the card is within.</param>
+        /// <param name="includeIdColumn">Whether to include the id column in the output</param>
         /// <returns>The parts of the card.</returns>
-        private static List<string> GetPartsForCardSet(Card card, Set set, bool includePrimaryKeyColumn)
+        private static List<string> GetPartsForCardSet(Card card, Set set, bool includeIdColumn)
         {
             List<string> parts = new List<string>();
 
-            if (includePrimaryKeyColumn)
+            if (includeIdColumn)
             {
                 // Set the id column to NULL so it is auto-incremented
                 parts.Add(null);
@@ -104,18 +118,6 @@ namespace MtgJsonParser
             parts.Add(card.Number);
 
             return parts;
-        }
-
-        /// <summary>
-        /// Joins the parts of an object to serialise, replacing any null values with SQL NULL
-        /// </summary>
-        /// <param name="parts">The parts to join.</param>
-        /// <returns>The joined string.</returns>
-        public static string JoinObjectParts(List<string> parts)
-        {
-            // Replace any null values with the SQL NULL character
-            var processedParts = parts.Select(x => x ?? "\\N").ToList();
-            return string.Join("\t", processedParts);
         }
     }
 }
