@@ -34,6 +34,7 @@ namespace MtgJsonParser
             bool showHelp = false;
             bool forceDownload = false;
             bool refreshDelverFromMagicDb = false;
+            bool refreshTutelageFromDelver = false;
             bool pushToDelverDb = false;
             bool pushToTutelage = false;
 
@@ -45,10 +46,13 @@ namespace MtgJsonParser
                  { "rd|refresh_delver",
                     "Whether to refresh delverdb from magic_db or not\n",
                   v => refreshDelverFromMagicDb = v != null },
-                { "v|push_to_delver",
+                { "rt|refresh_tutelage",
+                    "Whether to refresh tutelage from delverdb\n",
+                  v => refreshTutelageFromDelver = v != null },
+                { "pd|push_to_delver",
                     "Whether to update the delver database with changes\n",
                   v => pushToDelverDb = v != null },
-                { "t|push_to_tutelage",
+                { "pt|push_to_tutelage",
                     "Whether to update the tutelage database with changes\n",
                   v => pushToTutelage = v != null },
                 { "h|help",  "show this message and exit",
@@ -85,7 +89,8 @@ namespace MtgJsonParser
 
             Parser p = new Parser(
                 downloadFile: forceDownload,
-                refreshFromOldData: refreshDelverFromMagicDb,
+                refreshDelverFromOldData: refreshDelverFromMagicDb,
+                refreshTutelageFromDelver: refreshTutelageFromDelver,
                 pushToDelverDb: pushToDelverDb,
                 pushToTutelage: pushToTutelage);
         }

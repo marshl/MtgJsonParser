@@ -22,9 +22,11 @@ namespace MtgJsonParser
     using System.Data.Common;
     using System.Diagnostics;
     using System.IO;
+    using System.IO.Compression;
     using System.Linq;
     using System.Net;
     using System.Text;
+    using System.Text.RegularExpressions;
     using MySql.Data.MySqlClient;
     using Newtonsoft.Json;
     using Npgsql;
@@ -69,10 +71,10 @@ namespace MtgJsonParser
         /// Initializes a new instance of the <see cref="Parser"/> class.
         /// </summary>
         /// <param name="downloadFile">Whether to download a new copy of the JSON data or not</param>
-        /// <param name="refreshFromOldData">Whether the refresh the usercards data from the old database or not.</param>
+        /// <param name="refreshDelverFromOldData">Whether the refresh the usercards data from the old database or not.</param>
         /// <param name="pushToDelverDb">Whether to push the data to the DelverDb database.</param>
         /// <param name="pushToTutelage">Whether to push the data to the Tutelage database.</param>
-        public Parser(bool downloadFile, bool refreshFromOldData, bool pushToDelverDb, bool pushToTutelage)
+        public Parser(bool downloadFile, bool refreshDelverFromOldData, bool refreshTutelageFromDelver, bool pushToDelverDb, bool pushToTutelage)
         {
             this.setsToSkip = this.LoadSetsToSkip();
 
@@ -97,17 +99,16 @@ namespace MtgJsonParser
             Directory.CreateDirectory("temp");
             Directory.CreateDirectory("backup");
 
-            this.CreateLoaderFiles(pushToDelverDb);
+            this.CreateLoaderFiles(includeIdColumn: pushToDelverDb);
 
             MySqlConnection mysqlConnection = null;
             MySqlCommand mysqlCommand = null;
 
-            NpgsqlConnection postgresConnection = new NpgsqlConnection();
+            NpgsqlConnection postgresConnection = null;
             NpgsqlCommand postgresCommand = null;
 
             if (pushToDelverDb)
             {
-                this.CreateBackups();
                 mysqlConnection = new MySqlConnection();
                 mysqlConnection.ConnectionString = "server=" + Settings.Default.MySqlServer
                                     + ";user=" + Settings.Default.MySqlUser
@@ -121,6 +122,7 @@ namespace MtgJsonParser
 
             if (pushToTutelage)
             {
+                postgresConnection = new NpgsqlConnection();
                 ConnectionStringSettings conSettings = ConfigurationManager.ConnectionStrings["PostgresConnection"];
                 postgresConnection.ConnectionString = conSettings.ConnectionString;
                 postgresConnection.Open();
@@ -129,14 +131,19 @@ namespace MtgJsonParser
 
             if (pushToTutelage || pushToDelverDb)
             {
-                if (pushToTutelage)
-                {
-                    this.UpdateDatabaseWithCommand(postgresCommand, refreshFromOldData);
-                }
+                this.CreateDatabaseBackups(
+                    backupMagicDb: false,
+                    backupDelverDb: pushToDelverDb,
+                    backupTutelageDb: pushToTutelage);
 
                 if (pushToDelverDb)
                 {
-                    this.UpdateDatabaseWithCommand(mysqlCommand, refreshFromOldData);
+                    this.UpdateDatabaseWithCommand(mysqlCommand, refreshDelverFromOldData);
+                }
+
+                if (pushToTutelage)
+                {
+                    this.UpdateDatabaseWithCommand(postgresCommand, refreshDelverFromOldData);
                 }
             }
 
@@ -169,7 +176,14 @@ namespace MtgJsonParser
 
             if (refreshFromOldData)
             {
-                this.RefreshDatabaseFromOldData(command);
+                if (command is MySqlCommand)
+                {
+                    this.RefreshDelverFromMagicDb(command);
+                }
+                else if (command is NpgsqlCommand)
+                {
+                    this.RefreshTutelageFromDelver();
+                }
             }
             else
             {
@@ -208,6 +222,11 @@ namespace MtgJsonParser
             this.UpdateTableWithNewCardIDs("deckcards", command);
         }
 
+        private void RefreshTutelageFromDelver()
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Creates the tab separated table files to be loaded into the database.
         /// </summary>
@@ -227,7 +246,7 @@ namespace MtgJsonParser
         /// Truncates existing user tables, and loads data from the old database.
         /// </summary>
         /// <param name="command">The sql command to use.</param>
-        private void RefreshDatabaseFromOldData(DbCommand command)
+        private void RefreshDelverFromMagicDb(DbCommand command)
         {
             Console.Write("Refreshing data set from magic_db database.");
 
@@ -493,8 +512,8 @@ namespace MtgJsonParser
 
                     try
                     {
-                        Console.WriteLine(filename);
                         wc.DownloadFile(url, filename);
+                        Console.WriteLine($"Downloaded {filename}");
                     }
                     catch (WebException)
                     {
@@ -507,23 +526,50 @@ namespace MtgJsonParser
         /// <summary>
         /// Creates backup files for both the new and old databases
         /// </summary>
-        private void CreateBackups()
+        private void CreateDatabaseBackups(bool backupMagicDb, bool backupDelverDb, bool backupTutelageDb)
         {
-            Console.WriteLine("Creating backup files.");
+            if (!backupMagicDb && !backupDelverDb && !backupTutelageDb)
+            {
+                return;
+            }
+
+            Console.Write("Creating backup files... ");
 
             DirectoryInfo backupDir = Directory.CreateDirectory(Path.Combine("backup", string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now)));
 
-            string oldbackup = $"{backupDir.FullName}\\magic_db.sql";
-            Process p = Process.Start("CMD.exe", $"/C mysqldump -u root magic_db > \"{oldbackup}\"");
-            p.WaitForExit();
+            if (backupMagicDb)
+            {
+                string oldbackup = $"{backupDir.FullName}\\magic_db.sql";
+                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root magic_db > \"{oldbackup}\"");
+                p.WaitForExit();
+            }
 
-            string newbackup = $"{backupDir.FullName}\\delverdb.sql";
-            p = Process.Start("CMD.exe", $"/C mysqldump -u root delverdb > \"{newbackup}\"");
-            p.WaitForExit();
+            if (backupDelverDb)
+            {
+                string newbackup = $"{backupDir.FullName}\\delverdb.sql";
+                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root delverdb > \"{newbackup}\"");
+                p.WaitForExit();
+            }
 
-            System.IO.Compression.ZipFile.CreateFromDirectory(backupDir.FullName, $"backup\\{backupDir.Name}.zip");
+            if (backupTutelageDb)
+            {
+                // Dig the password out of the connection file, then use it to backup the postgres database
+                Regex regex = new Regex("Password=(.+?);");
+                Match match = regex.Match(ConfigurationManager.ConnectionStrings["PostgresConnection"].ConnectionString);
+                string password = match.Groups[1].Value;
 
+                // pg_dump can't take a password as a parameter, but it can use an environment variable
+                Environment.SetEnvironmentVariable("PGPASSWORD", password);
+                string postgresbackup = $"{backupDir.FullName}\\tutelage.sql";
+                Process p = Process.Start("pg_dump.exe", $"-U postgres -d tutelage -f {postgresbackup}");
+                p.WaitForExit();
+            }
+
+            // Zip the directory and delete it
+            ZipFile.CreateFromDirectory(backupDir.FullName, $"backup\\{backupDir.Name}.zip");
             backupDir.Delete(true);
+
+            Console.WriteLine("Done");
         }
 
         /// <summary>
