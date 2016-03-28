@@ -107,7 +107,7 @@ namespace MtgJsonParser
             NpgsqlConnection postgresConnection = null;
             NpgsqlCommand postgresCommand = null;
 
-            if (pushToDelverDb)
+            if (pushToDelverDb || refreshTutelageFromDelver)
             {
                 mysqlConnection = new MySqlConnection();
                 mysqlConnection.ConnectionString = "server=" + Settings.Default.MySqlServer
@@ -138,12 +138,22 @@ namespace MtgJsonParser
 
                 if (pushToDelverDb)
                 {
+                    if (refreshDelverFromOldData)
+                    {
+                        this.RefreshDelverFromMagicDb(mysqlCommand);
+                    }
+
                     this.UpdateDatabaseWithCommand(mysqlCommand, refreshDelverFromOldData);
                 }
 
                 if (pushToTutelage)
                 {
-                    this.UpdateDatabaseWithCommand(postgresCommand, refreshDelverFromOldData);
+                    if (refreshTutelageFromDelver)
+                    {
+                        this.RefreshTutelageFromDelver(mysqlCommand, postgresCommand);
+                    }
+
+                    this.UpdateDatabaseWithCommand(postgresCommand, refreshTutelageFromDelver);
                 }
             }
 
@@ -171,29 +181,30 @@ namespace MtgJsonParser
         /// <param name="refreshFromOldData">Whether to update the database with old data.</param>
         private void UpdateDatabaseWithCommand(DbCommand command, bool refreshFromOldData)
         {
-            command.CommandText = "TRUNCATE historicalcards";
-            command.ExecuteNonQuery();
+            if (!refreshFromOldData)
+            {
+                command.CommandText = "TRUNCATE historicalcards";
+                command.ExecuteNonQuery();
 
-            if (refreshFromOldData)
-            {
-                if (command is MySqlCommand)
-                {
-                    this.RefreshDelverFromMagicDb(command);
-                }
-                else if (command is NpgsqlCommand)
-                {
-                    this.RefreshTutelageFromDelver();
-                }
-            }
-            else
-            {
                 command.CommandText = @"
                        INSERT INTO historicalcards
                        (SELECT id, name FROM cards)";
                 command.ExecuteNonQuery();
             }
 
+            Console.Write("Loading files into database... ");
+
             this.LoadLocalFileIntoTable("cards", "temp/cards", command, "id,name,cost,cmc,colour,colouridentity,numcolours,type,subtype,power,numpower,toughness,numtoughness,loyalty,rules");
+            this.LoadLocalFileIntoTable("cardsets", "temp/cardsets", command, "cardid,setcode,multiverseid,artist,flavourtext,rarity,collectornum");
+            this.LoadLocalFileIntoTable("blocks", "temp/blocks", command, "id,name");
+            this.LoadLocalFileIntoTable("sets", "temp/sets", command, "id,code,name,blockid,release_date");
+            this.LoadLocalFileIntoTable("types", "temp/types", command, "id,name");
+            this.LoadLocalFileIntoTable("subtypes", "temp/subtypes", command, "id,name");
+            this.LoadLocalFileIntoTable("cardlinks", "temp/links", command, "cardid_from,cardid_to,link_type");
+
+            Console.WriteLine("Done");
+
+            Console.Write("Creating old-to-new-card-id table... ");
 
             command.CommandText = "TRUNCATE oldtonewcards";
             command.ExecuteNonQuery();
@@ -207,24 +218,16 @@ namespace MtgJsonParser
             )";
             command.ExecuteNonQuery();
 
-            this.LoadLocalFileIntoTable("cardsets", "temp/cardsets", command, "cardid,setcode,multiverseid,artist,flavourtext,rarity,collectornum");
-            this.LoadLocalFileIntoTable("blocks", "temp/blocks", command, "id,name");
-            this.LoadLocalFileIntoTable("sets", "temp/sets", command, "id,code,name,blockid,release_date");
-            this.LoadLocalFileIntoTable("types", "temp/types", command, "id,name");
-            this.LoadLocalFileIntoTable("subtypes", "temp/subtypes", command, "id,name");
-            this.LoadLocalFileIntoTable("cardlinks", "temp/links", command, "cardid_from,cardid_to,link_type");
+            Console.WriteLine("Done");
 
-            Console.WriteLine("Updating old card IDs with new values.");
+            Console.Write("Updating old card IDs with new values... ");
 
             this.UpdateTableWithNewCardIDs("usercards", command);
             this.UpdateTableWithNewCardIDs("usercardchanges", command);
             this.UpdateTableWithNewCardIDs("taglinks", command);
             this.UpdateTableWithNewCardIDs("deckcards", command);
-        }
 
-        private void RefreshTutelageFromDelver()
-        {
-            throw new NotImplementedException();
+            Console.WriteLine("Done");
         }
 
         /// <summary>
@@ -280,6 +283,51 @@ namespace MtgJsonParser
             command.ExecuteNonQuery();
 
             Console.WriteLine("Done");
+        }
+
+        private void RefreshTutelageFromDelver(MySqlCommand mysqlCommand, NpgsqlCommand postgresCommand)
+        {
+            Directory.CreateDirectory("migrate");
+            
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, cardid, setcode, count FROM usercards ORDER BY id ASC", "usercards");
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, userid, cardid, setcode, DATE_FORMAT(datemodified, '%Y-%c-%e %T' ), difference FROM usercardchanges ORDER BY id ASC", "usercardchanges");
+
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, name FROM tags ORDER BY id ASC", "tags");
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, tagid, cardid FROM taglinks ORDER BY id ASC", "taglinks");
+
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, deckname, DATE_FORMAT(datecreated, '%Y-%c-%e %T' ), DATE_FORMAT(datemodified, '%Y-%c-%e %T' ) FROM decks ORDER BY id ASC", "decks");
+            DumpRecordsFromTable(mysqlCommand, "SELECT id, deckid, cardid, count FROM deckcards ORDER BY id ASC", "deckcards");
+
+            this.LoadLocalFileIntoTable("usercards", "migrate/usercards", postgresCommand, "id, ownerid, cardid, setcode, count");
+            this.LoadLocalFileIntoTable("usercardchanges", "migrate/usercardchanges", postgresCommand, "id, userid, cardid, setcode, datemodified, difference");
+            this.LoadLocalFileIntoTable("tags", "migrate/tags", postgresCommand, "id, name");
+            this.LoadLocalFileIntoTable("taglinks", "migrate/taglinks", postgresCommand, "id, tagid, cardid");
+            this.LoadLocalFileIntoTable("decks", "migrate/decks", postgresCommand, "id, ownerid, deckname, datecreated, datemodified");
+            this.LoadLocalFileIntoTable("deckcards", "migrate/deckcards", postgresCommand, "id, deckid, cardid, count");
+        }
+
+        private void DumpRecordsFromTable(DbCommand command, string query, string filename)
+        {
+            command.CommandText = query;
+            using (StreamWriter writer = new StreamWriter($@"migrate\{filename}"))
+            using (DbDataReader reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    for (int i = 0; i < reader.FieldCount; ++i)
+                    {
+                        if (i != 0)
+                        {
+                            writer.Write('\t');
+                        }
+
+                        object val = reader.GetValue(i);
+                        writer.Write(val);
+                    }
+
+                    writer.WriteLine();
+                }
+            }
         }
 
         /// <summary>
