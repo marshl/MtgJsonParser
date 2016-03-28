@@ -103,6 +103,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="data\additional_blocks.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="data\sets_to_skip.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
