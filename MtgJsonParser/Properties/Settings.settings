@@ -14,21 +14,6 @@
     <Setting Name="JsonDirectory" Type="System.String" Scope="User">
       <Value Profile="(Default)">AllSets-x.json</Value>
     </Setting>
-    <Setting Name="MySqlServer" Type="System.String" Scope="User">
-      <Value Profile="(Default)">localhost</Value>
-    </Setting>
-    <Setting Name="MySqlUser" Type="System.String" Scope="User">
-      <Value Profile="(Default)">root</Value>
-    </Setting>
-    <Setting Name="MySqlPassword" Type="System.String" Scope="User">
-      <Value Profile="(Default)" />
-    </Setting>
-    <Setting Name="MySqlDatabase" Type="System.String" Scope="User">
-      <Value Profile="(Default)">delverdb</Value>
-    </Setting>
-    <Setting Name="MySqlPort" Type="System.String" Scope="User">
-      <Value Profile="(Default)">3306</Value>
-    </Setting>
     <Setting Name="InputDictionaryFilename" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\Users\Liam\Common\dictionary.txt</Value>
     </Setting>

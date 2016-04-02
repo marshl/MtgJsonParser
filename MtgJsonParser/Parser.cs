@@ -110,11 +110,8 @@ namespace MtgJsonParser
             if (pushToDelverDb || refreshTutelageFromDelver)
             {
                 mysqlConnection = new MySqlConnection();
-                mysqlConnection.ConnectionString = "server=" + Settings.Default.MySqlServer
-                                    + ";user=" + Settings.Default.MySqlUser
-                                    + (string.IsNullOrEmpty(Settings.Default.MySqlPassword) ? null : ":password=" + Settings.Default.MySqlPassword)
-                                    + ";database=" + Settings.Default.MySqlDatabase
-                                    + ";port=" + Settings.Default.MySqlPort;
+                ConnectionStringSettings conSettings = ConfigurationManager.ConnectionStrings["DelverDbConnection"];
+                mysqlConnection.ConnectionString = conSettings.ConnectionString;
 
                 mysqlConnection.Open();
                 mysqlCommand = mysqlConnection.CreateCommand();
@@ -123,7 +120,7 @@ namespace MtgJsonParser
             if (pushToTutelage)
             {
                 postgresConnection = new NpgsqlConnection();
-                ConnectionStringSettings conSettings = ConfigurationManager.ConnectionStrings["PostgresConnection"];
+                ConnectionStringSettings conSettings = ConfigurationManager.ConnectionStrings["TutelageConnection"];
                 postgresConnection.ConnectionString = conSettings.ConnectionString;
                 postgresConnection.Open();
                 postgresCommand = postgresConnection.CreateCommand();
@@ -585,25 +582,29 @@ namespace MtgJsonParser
 
             DirectoryInfo backupDir = Directory.CreateDirectory(Path.Combine("backup", string.Format("{0:yyyy-MM-dd_HH-mm-ss}", DateTime.Now)));
 
+            Regex passwordRegex = new Regex("password=(.+?);");
+            Match mamysqlMatch = passwordRegex.Match(ConfigurationManager.ConnectionStrings["DelverDbConnection"].ConnectionString);
+            string mysqlPassword = mamysqlMatch.Groups[1].Value;
+
             if (backupMagicDb)
             {
                 string oldbackup = $"{backupDir.FullName}\\magic_db.sql";
-                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root magic_db > \"{oldbackup}\"");
+                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root -p{mysqlPassword} magic_db > \"{oldbackup}\"");
                 p.WaitForExit();
             }
 
             if (backupDelverDb)
             {
                 string newbackup = $"{backupDir.FullName}\\delverdb.sql";
-                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root delverdb > \"{newbackup}\"");
+                Process p = Process.Start("CMD.exe", $"/C mysqldump -u root -p{mysqlPassword} delverdb > \"{newbackup}\"");
                 p.WaitForExit();
             }
 
             if (backupTutelageDb)
             {
                 // Dig the password out of the connection file, then use it to backup the postgres database
-                Regex regex = new Regex("Password=(.+?);");
-                Match match = regex.Match(ConfigurationManager.ConnectionStrings["PostgresConnection"].ConnectionString);
+                Regex postgresRegex = new Regex("Password=(.+?);");
+                Match match = postgresRegex.Match(ConfigurationManager.ConnectionStrings["PostgresConnection"].ConnectionString);
                 string password = match.Groups[1].Value;
 
                 // pg_dump can't take a password as a parameter, but it can use an environment variable

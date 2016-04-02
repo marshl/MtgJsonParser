@@ -74,66 +74,6 @@ namespace MtgJsonParser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("localhost")]
-        public string MySqlServer {
-            get {
-                return ((string)(this["MySqlServer"]));
-            }
-            set {
-                this["MySqlServer"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("root")]
-        public string MySqlUser {
-            get {
-                return ((string)(this["MySqlUser"]));
-            }
-            set {
-                this["MySqlUser"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string MySqlPassword {
-            get {
-                return ((string)(this["MySqlPassword"]));
-            }
-            set {
-                this["MySqlPassword"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("delverdb")]
-        public string MySqlDatabase {
-            get {
-                return ((string)(this["MySqlDatabase"]));
-            }
-            set {
-                this["MySqlDatabase"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("3306")]
-        public string MySqlPort {
-            get {
-                return ((string)(this["MySqlPort"]));
-            }
-            set {
-                this["MySqlPort"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("C:\\Users\\Liam\\Common\\dictionary.txt")]
         public string InputDictionaryFilename {
             get {
