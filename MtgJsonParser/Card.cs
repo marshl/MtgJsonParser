@@ -285,7 +285,7 @@ namespace MtgJsonParser
                     return 0;
                 }
 
-                return ColourExtensions.ConvertStringsToFlags(this.ColourIdentity);
+                return ColourExtensions.ConvertCharsToFlags(this.ColourIdentity);
             }
         }
 

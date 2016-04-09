@@ -57,7 +57,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Converts a list of colour strings to bit flags and returns the combined result.
         /// </summary>
-        /// <param name="colours">The list of colours to parse/</param>
+        /// <param name="colours">The list of colour strings to parse/</param>
         /// <returns>The combined flags of all the given colours.</returns>
         public static int ConvertStringsToFlags(List<string> colours)
         {
@@ -65,8 +65,26 @@ namespace MtgJsonParser
             var colourEnums = (Colour[])Enum.GetValues(typeof(Colour));
             foreach (string str in colours)
             {
-                Colour c = Array.Find(colourEnums, s => s.GetSymbol().Equals(str, StringComparison.OrdinalIgnoreCase));
+                Colour c = Array.Find(colourEnums, s => s.GetName().Equals(str, StringComparison.OrdinalIgnoreCase));
                 flags |= c.GetFlagValue();
+            }
+
+            return flags;
+        }
+
+        /// <summary>
+        /// Converts a list of colour characters to bit flags and returns the combined result.
+        /// </summary>
+        /// <param name="colourChars">The list of colour characters to parse.</param>
+        /// <returns>The combined flags of all the given colours.</returns>
+        public static int ConvertCharsToFlags(List<string> colourChars)
+        {
+            int flags = 0;
+            var colourEnums = (Colour[])Enum.GetValues(typeof(Colour));
+            foreach (string c in colourChars)
+            {
+                Colour colour = Array.Find(colourEnums, s => s.GetSymbol().Equals(c, StringComparison.OrdinalIgnoreCase));
+                flags |= colour.GetFlagValue();
             }
 
             return flags;
