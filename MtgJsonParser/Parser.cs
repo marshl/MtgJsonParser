@@ -71,7 +71,8 @@ namespace MtgJsonParser
         /// Initializes a new instance of the <see cref="Parser"/> class.
         /// </summary>
         /// <param name="downloadFile">Whether to download a new copy of the JSON data or not</param>
-        /// <param name="refreshDelverFromOldData">Whether the refresh the usercards data from the old database or not.</param>
+        /// <param name="refreshDelverFromOldData">Whether to refresh the usercards data from the old database or not.</param>
+        /// <param name="refreshTutelageFromDelver">Whether to refresh the tutelage database from delver.</param>
         /// <param name="pushToDelverDb">Whether to push the data to the DelverDb database.</param>
         /// <param name="pushToTutelage">Whether to push the data to the Tutelage database.</param>
         public Parser(bool downloadFile, bool refreshDelverFromOldData, bool refreshTutelageFromDelver, bool pushToDelverDb, bool pushToTutelage)
@@ -282,18 +283,23 @@ namespace MtgJsonParser
             Console.WriteLine("Done");
         }
 
+        /// <summary>
+        /// Refrehses the data in the tutelage database from DelverDB
+        /// </summary>
+        /// <param name="mysqlCommand">The DelverDB command to operate with.</param>
+        /// <param name="postgresCommand">The tutelage command to operate with.</param>
         private void RefreshTutelageFromDelver(MySqlCommand mysqlCommand, NpgsqlCommand postgresCommand)
         {
             Directory.CreateDirectory("migrate");
             
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, cardid, setcode, count FROM usercards ORDER BY id ASC", "usercards");
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, userid, cardid, setcode, DATE_FORMAT(datemodified, '%Y-%c-%e %T' ), difference FROM usercardchanges ORDER BY id ASC", "usercardchanges");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, cardid, setcode, count FROM usercards ORDER BY id ASC", "usercards");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, userid, cardid, setcode, DATE_FORMAT(datemodified, '%Y-%c-%e %T' ), difference FROM usercardchanges ORDER BY id ASC", "usercardchanges");
 
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, name FROM tags ORDER BY id ASC", "tags");
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, tagid, cardid FROM taglinks ORDER BY id ASC", "taglinks");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, name FROM tags ORDER BY id ASC", "tags");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, tagid, cardid FROM taglinks ORDER BY id ASC", "taglinks");
 
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, deckname, DATE_FORMAT(datecreated, '%Y-%c-%e %T' ), DATE_FORMAT(datemodified, '%Y-%c-%e %T' ) FROM decks ORDER BY id ASC", "decks");
-            DumpRecordsFromTable(mysqlCommand, "SELECT id, deckid, cardid, count FROM deckcards ORDER BY id ASC", "deckcards");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, deckname, DATE_FORMAT(datecreated, '%Y-%c-%e %T' ), DATE_FORMAT(datemodified, '%Y-%c-%e %T' ) FROM decks ORDER BY id ASC", "decks");
+            this.DumpRecordsFromTable(mysqlCommand, "SELECT id, deckid, cardid, count FROM deckcards ORDER BY id ASC", "deckcards");
 
             this.LoadLocalFileIntoTable("usercards", "migrate/usercards", postgresCommand, "id, ownerid, cardid, setcode, count");
             this.LoadLocalFileIntoTable("usercardchanges", "migrate/usercardchanges", postgresCommand, "id, userid, cardid, setcode, datemodified, difference");
@@ -303,10 +309,16 @@ namespace MtgJsonParser
             this.LoadLocalFileIntoTable("deckcards", "migrate/deckcards", postgresCommand, "id, deckid, cardid, count");
         }
 
+        /// <summary>
+        /// Dumps the result of a given SQL query into a tab separated file.
+        /// </summary>
+        /// <param name="command">The database to pull the data from.</param>
+        /// <param name="query">The query to select the data with.</param>
+        /// <param name="filename">The file to dump the results to.</param>
         private void DumpRecordsFromTable(DbCommand command, string query, string filename)
         {
             command.CommandText = query;
-            using (StreamWriter writer = new StreamWriter($@"migrate\{filename}"))
+            using (StreamWriter writer = new StreamWriter($"migrate\\{filename}"))
             using (DbDataReader reader = command.ExecuteReader())
             {
                 while (reader.Read())
@@ -571,6 +583,9 @@ namespace MtgJsonParser
         /// <summary>
         /// Creates backup files for both the new and old databases
         /// </summary>
+        /// <param name="backupMagicDb">Whether to backup magic_db</param>
+        /// <param name="backupDelverDb">Whether to backup the delverdb</param>
+        /// <param name="backupTutelageDb">Whether to backup tutelage</param>
         private void CreateDatabaseBackups(bool backupMagicDb, bool backupDelverDb, bool backupTutelageDb)
         {
             if (!backupMagicDb && !backupDelverDb && !backupTutelageDb)
