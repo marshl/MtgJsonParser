@@ -858,7 +858,7 @@ namespace MtgJsonParser
                     parts.Add(this.blockMap[set.Block].ToString());
                 }
 
-                parts.Add(set.ReleaseDate.ToString());
+                parts.Add(set.ReleaseDate?.ToString());
 
                 sw.WriteLine(DataSerialiser.JoinObjectParts(parts));
             }
