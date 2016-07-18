@@ -20,5 +20,20 @@
     <Setting Name="OutputDictionaryFilename" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\Users\Liam\AppData\Roaming\Microsoft\UProof\MTG.DIC</Value>
     </Setting>
+    <Setting Name="MySqlServer" Type="System.String" Scope="User">
+      <Value Profile="(Default)">localhost</Value>
+    </Setting>
+    <Setting Name="MySqlUser" Type="System.String" Scope="User">
+      <Value Profile="(Default)">root</Value>
+    </Setting>
+    <Setting Name="MySqlPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="MySqlDatabase" Type="System.String" Scope="User">
+      <Value Profile="(Default)">delverdb</Value>
+    </Setting>
+    <Setting Name="MySqlPort" Type="System.String" Scope="User">
+      <Value Profile="(Default)">3306</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
