@@ -291,7 +291,7 @@ namespace MtgJsonParser
         private void RefreshTutelageFromDelver(MySqlCommand mysqlCommand, NpgsqlCommand postgresCommand)
         {
             Directory.CreateDirectory("migrate");
-            
+
             this.DumpRecordsFromTable(mysqlCommand, "SELECT id, ownerid, cardid, setcode, count FROM usercards ORDER BY id ASC", "usercards");
             this.DumpRecordsFromTable(mysqlCommand, "SELECT id, userid, cardid, setcode, DATE_FORMAT(datemodified, '%Y-%c-%e %T' ), difference FROM usercardchanges ORDER BY id ASC", "usercardchanges");
 
@@ -716,8 +716,9 @@ namespace MtgJsonParser
 
             Console.Write("Deserialising set data... ");
             var setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
+
             Console.WriteLine("Done");
-            return setDictionary;
+            return setDictionary.OrderBy(x => x.Value.ReleaseDate).ToDictionary(x => x.Key, x => x.Value);
         }
 
         /// <summary>
