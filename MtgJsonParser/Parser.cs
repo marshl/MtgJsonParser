@@ -682,7 +682,7 @@ namespace MtgJsonParser
 
             this.uniqueCards = new Dictionary<string, Card>();
             int oracleID = 0;
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)).OrderBy(x => x.Value.ReleaseDate))
             {
                 Set set = pair.Value;
 
@@ -718,7 +718,7 @@ namespace MtgJsonParser
             var setDictionary = JsonConvert.DeserializeObject<Dictionary<string, Set>>(data);
 
             Console.WriteLine("Done");
-            return setDictionary.OrderBy(x => x.Value.ReleaseDate).ToDictionary(x => x.Key, x => x.Value);
+            return setDictionary;
         }
 
         /// <summary>
@@ -771,7 +771,7 @@ namespace MtgJsonParser
             Console.Write("Writing cardsets table file... ");
             StreamWriter sw = new StreamWriter("temp/cardsets", false, this.defaultFileEncoding);
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)).OrderBy(x => x.Value.ReleaseDate))
             {
                 Set set = pair.Value;
 
@@ -796,7 +796,7 @@ namespace MtgJsonParser
             int blockId = 1;
             this.blockMap = new Dictionary<string, int>();
 
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)).OrderBy(x => x.Value.ReleaseDate))
             {
                 Set set = pair.Value;
 
@@ -835,7 +835,7 @@ namespace MtgJsonParser
             StreamWriter sw = new StreamWriter("temp/sets", false, this.defaultFileEncoding);
 
             int setId = 1;
-            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)))
+            foreach (KeyValuePair<string, Set> pair in this.setDictionary.Where(x => !this.setsToSkip.Contains(x.Value.Code)).OrderBy(x => x.Value.ReleaseDate))
             {
                 Set set = pair.Value;
 
