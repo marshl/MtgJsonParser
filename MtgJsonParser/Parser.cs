@@ -369,10 +369,7 @@ namespace MtgJsonParser
                     foreach (string chunk in chunks)
                     {
                         string newChunk = chunk.Replace(",", string.Empty).Replace(":", string.Empty);
-                        if (!realWordSet.Contains(newChunk.ToLower()))
-                        {
-                            names.Add(newChunk);
-                        }
+                        names.Add(newChunk);
                     }
                 }
             }
