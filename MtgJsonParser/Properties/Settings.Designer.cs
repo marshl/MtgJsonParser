@@ -12,7 +12,7 @@ namespace MtgJsonParser.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "14.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.8.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -26,7 +26,7 @@ namespace MtgJsonParser.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.WebServiceUrl)]
-        [global::System.Configuration.DefaultSettingValueAttribute("http://mtgjson.com/json/AllSets-x.json.zip")]
+        [global::System.Configuration.DefaultSettingValueAttribute("https://mtgjson.com/json/AllSets.json.zip")]
         public string JsonUrl {
             get {
                 return ((string)(this["JsonUrl"]));
@@ -38,7 +38,7 @@ namespace MtgJsonParser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("AllSets-x.json.zip")]
+        [global::System.Configuration.DefaultSettingValueAttribute("AllSets.json.zip")]
         public string JsonZipFilename {
             get {
                 return ((string)(this["JsonZipFilename"]));
@@ -50,7 +50,7 @@ namespace MtgJsonParser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("AllSets-x.json")]
+        [global::System.Configuration.DefaultSettingValueAttribute("AllSets.json")]
         public string JsonFilename {
             get {
                 return ((string)(this["JsonFilename"]));
@@ -62,7 +62,7 @@ namespace MtgJsonParser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("AllSets-x.json")]
+        [global::System.Configuration.DefaultSettingValueAttribute("AllSets.json")]
         public string JsonDirectory {
             get {
                 return ((string)(this["JsonDirectory"]));

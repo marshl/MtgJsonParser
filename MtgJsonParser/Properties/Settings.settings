@@ -3,16 +3,16 @@
   <Profiles />
   <Settings>
     <Setting Name="JsonUrl" Type="(Web Service URL)" Scope="User">
-      <Value Profile="(Default)">http://mtgjson.com/json/AllSets-x.json.zip</Value>
+      <Value Profile="(Default)">https://mtgjson.com/json/AllSets.json.zip</Value>
     </Setting>
     <Setting Name="JsonZipFilename" Type="System.String" Scope="User">
-      <Value Profile="(Default)">AllSets-x.json.zip</Value>
+      <Value Profile="(Default)">AllSets.json.zip</Value>
     </Setting>
     <Setting Name="JsonFilename" Type="System.String" Scope="User">
-      <Value Profile="(Default)">AllSets-x.json</Value>
+      <Value Profile="(Default)">AllSets.json</Value>
     </Setting>
     <Setting Name="JsonDirectory" Type="System.String" Scope="User">
-      <Value Profile="(Default)">AllSets-x.json</Value>
+      <Value Profile="(Default)">AllSets.json</Value>
     </Setting>
     <Setting Name="InputDictionaryFilename" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\Users\Liam\Common\dictionary.txt</Value>

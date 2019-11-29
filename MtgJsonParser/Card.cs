@@ -29,7 +29,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Gets or sets the unique id for this card. It is made up by doing an SHA1 hash of setCode + cardName + cardImageName
         /// </summary>
-        [JsonProperty("id")]
+        [JsonProperty("uuid")]
         public string ID { get; set; }
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Gets or sets the converted mana cost. Always a number. NOTE: cmc may have a decimal point as cards from unhinged may contain "half mana" (such as 'Little Girl' with a cmc of 0.5). Cards without this field have an implied cmc of zero as per rule 202.3a
         /// </summary>
-        [JsonProperty("cmc")]
+        [JsonProperty("convertedManaCost")]
         public float CMC { get; set; }
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Gets or sets the flavor text of the card.
         /// </summary>
-        [JsonProperty("flavor")]
+        [JsonProperty("flavorText")]
         public string Flavortext { get; set; }
 
         /// <summary>
@@ -151,7 +151,7 @@ namespace MtgJsonParser
         /// Cards from sets that do not exist on Gatherer will NOT have a multiverseid.
         /// Sets not on Gatherer are: ATH, ITP, DKM, RQS, DPA and all sets with a 4 letter code that starts with a lowercase 'p'.
         /// </summary>
-        [JsonProperty("multiverseid")]
+        [JsonProperty("multiverseId")]
         public string MultiverseID { get; set; }
 
         /// <summary>
@@ -171,7 +171,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Gets or sets the border variation of the card. If the border for this specific card is DIFFERENT than the border specified in the top level set JSON, then it will be specified here. (Example: Unglued has silver borders, except for the lands which are black bordered)
         /// </summary>
-        [JsonProperty("border")]
+        [JsonProperty("borderColor")]
         public string Border { get; set; }
 
         /// <summary>
@@ -195,7 +195,7 @@ namespace MtgJsonParser
         /// <summary>
         /// Gets or sets a value indicating whether this card is reserved by Wizards Official Reprint Policy
         /// </summary>
-        [JsonProperty("reserved")]
+        [JsonProperty("isReserved")]
         public bool IsReserved { get; set; }
 
         /// <summary>
